@@ -66,3 +66,23 @@ def test_repeated_clicks_can_trigger_unlocked_emote() -> None:
     assert "_click_streak" in source
     assert "_available_catalogue_emote_animations" in source
     assert "_play_autonomous_catalogue_emote" in source
+
+
+def test_dance_emote_excluded_unless_music_playing() -> None:
+    from types import SimpleNamespace
+    from mochi.care import BondState
+
+    buddy = SimpleNamespace(
+        _bond_state=BondState(level=6),
+        _dev_unlock_all_emotes=False,
+        _music_monitor=None,
+    )
+    # When no music monitor or music not playing, dance must not appear
+    emotes_no_music = BondMeterMixin._available_catalogue_emote_animations(buddy)
+    assert "dance" not in emotes_no_music
+
+    # When music is playing, dance can appear
+    buddy._music_monitor = SimpleNamespace(music_playing=True)
+    emotes_with_music = BondMeterMixin._available_catalogue_emote_animations(buddy)
+    assert "dance" in emotes_with_music
+

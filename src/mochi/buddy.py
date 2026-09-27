@@ -691,7 +691,14 @@ class Buddy(Gtk.DrawingArea):
                 lambda: (),
             )()
         )
-        emote_candidates = [e for e in unlocked_emotes if e != "bounce"]
+        is_music = bool(
+            getattr(self, "_music_monitor", None) is not None
+            and getattr(self._music_monitor, "music_playing", False)
+        )
+        emote_candidates = [
+            e for e in unlocked_emotes
+            if e != "bounce" and (e != "dance" or is_music)
+        ]
         if emote_candidates and (
             self._click_streak >= 3
             or (self._click_streak >= 2 and random.random() < 0.50)
@@ -1084,6 +1091,12 @@ class Buddy(Gtk.DrawingArea):
                     lambda: (),
                 )()
             )
+            is_music = bool(
+                getattr(self, "_music_monitor", None) is not None
+                and getattr(self._music_monitor, "music_playing", False)
+            )
+            if not is_music:
+                unlocked_emotes = tuple(e for e in unlocked_emotes if e != "dance")
             roll = random.random()
             walk_chance = self.IDLE_WALK_CHANCE
             if allow_walk:

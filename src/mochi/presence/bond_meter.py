@@ -333,10 +333,17 @@ class BondMeterMixin:
     def _available_catalogue_emote_animations(self) -> tuple[str, ...]:
         """Expose unlocked catalogue animations to autonomous behavior."""
 
-        return unlocked_emote_animation_names(
+        unlocked = unlocked_emote_animation_names(
             self._bond_state,
             unlock_all=self._dev_unlock_all_emotes,
         )
+        is_music = bool(
+            getattr(self, "_music_monitor", None) is not None
+            and getattr(self._music_monitor, "music_playing", False)
+        )
+        if not is_music:
+            unlocked = tuple(e for e in unlocked if e != "dance")
+        return unlocked
 
     def _test_bond_reset(self, _button=None) -> None:
         """Restore a predictable Level 1 baseline after developer testing."""

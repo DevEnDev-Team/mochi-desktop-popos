@@ -349,7 +349,11 @@ class BondProgressOverlay:
         self._set_level_up_content(True)
         self._set_level_up_highlight(True)
         self.update(state)
+        self._window.queue_resize()
         self.resume()
+        GLib.idle_add(self.update_position)
+        GLib.timeout_add(24, self.update_position)
+        GLib.timeout_add(50, self.update_position)
         self._level_up_source_id = GLib.timeout_add(
             self.LEVEL_UP_DISPLAY_MS,
             self._finish_level_up,
@@ -381,7 +385,11 @@ class BondProgressOverlay:
         for preview in self._unlock_previews:
             preview.set_emote(emote)
 
+        self._window.queue_resize()
         self.resume()
+        GLib.idle_add(self.update_position)
+        GLib.timeout_add(24, self.update_position)
+        GLib.timeout_add(50, self.update_position)
         self._level_up_source_id = GLib.timeout_add(
             self.EMOTE_UNLOCK_DISPLAY_MS,
             self._finish_emote_unlock,
@@ -471,6 +479,7 @@ class BondProgressOverlay:
             self._window.realize()
             set_override_redirect(self._window, True)
             self._window.set_visible(True)
+            self._window.queue_resize()
             self.update_position()
             if not was_visible:
                 GLib.idle_add(self._restore_opacity)
@@ -690,12 +699,13 @@ class BondProgressOverlay:
         owner_x, owner_y = owner_position
         owner_width = max(1, self._owner.get_width())
         owner_height = max(1, self._owner.get_height())
-        width = self._window.get_width()
-        height = self._window.get_height()
+        _min, natural = self._window.get_preferred_size()
+        width = max(self._window.get_width(), natural.width)
+        height = max(self._window.get_height(), natural.height)
         if width <= 1:
-            width = 206
+            width = max(206, natural.width) if natural.width > 1 else 206
         if height <= 1:
-            height = 76
+            height = max(76, natural.height) if natural.height > 1 else 76
 
         owner_scale = self._x11_coordinate_scale(self._owner)
         overlay_scale = self._x11_coordinate_scale(self._window)
@@ -786,6 +796,7 @@ class BondProgressOverlay:
             }
             .mochi-bond-card.mochi-bond-level-up {
                 background: alpha(@window_bg_color, 0.98);
+                color: @window_fg_color;
                 border: 2px solid alpha(#a8f2b4, 0.92);
                 border-radius: 14px;
                 box-shadow: 0 7px 24px alpha(#79c98b, 0.34);
@@ -802,6 +813,7 @@ class BondProgressOverlay:
             .mochi-level-up-level {
                 font-size: 17px;
                 font-weight: 800;
+                color: @window_fg_color;
             }
             .mochi-emote-unlock-preview {
                 margin-top: 2px;

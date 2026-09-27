@@ -7,6 +7,9 @@ from collections.abc import Iterable
 from html import escape
 import random
 
+from mochi.i18n import get_language
+from .phrases_fr import CONTEXT_PHRASES_FR, PHRASES_FR
+
 
 INTRO_LINES = (
     "Hi! I’m Mochi 🌱",
@@ -766,10 +769,14 @@ class PhraseBank:
         exclude_recent: bool = True,
         remember: bool = False,
     ) -> str:
-        try:
-            choices = PHRASES[category]
-        except KeyError as exc:
-            raise KeyError(f"unknown Mochi phrase category: {category}") from exc
+        lang = get_language()
+        if lang == "fr" and category in PHRASES_FR:
+            choices = PHRASES_FR[category]
+        else:
+            try:
+                choices = PHRASES[category]
+            except KeyError as exc:
+                raise KeyError(f"unknown Mochi phrase category: {category}") from exc
         return self.choose_from(
             choices,
             exclude_recent=exclude_recent,
@@ -783,10 +790,14 @@ class PhraseBank:
         exclude_recent: bool = True,
         remember: bool = False,
     ) -> str:
-        try:
-            choices = CONTEXT_PHRASES[context]
-        except KeyError as exc:
-            raise KeyError(f"unknown Mochi phrase context: {context}") from exc
+        lang = get_language()
+        if lang == "fr" and context in CONTEXT_PHRASES_FR:
+            choices = CONTEXT_PHRASES_FR[context]
+        else:
+            try:
+                choices = CONTEXT_PHRASES[context]
+            except KeyError as exc:
+                raise KeyError(f"unknown Mochi phrase context: {context}") from exc
         return self.choose_from(
             choices,
             exclude_recent=exclude_recent,

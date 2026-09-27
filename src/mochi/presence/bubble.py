@@ -11,7 +11,8 @@ import gi
 
 gi.require_version("Gdk", "4.0")
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+gi.require_version("Pango", "1.0")
+from gi.repository import Gdk, GLib, Gtk, Pango  # noqa: E402
 
 from mochi.x11 import (
     get_window_position,
@@ -103,6 +104,7 @@ class SpeechBubble:
     def _make_label() -> Gtk.Label:
         label = Gtk.Label()
         label.set_wrap(True)
+        label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
         label.set_max_width_chars(30)
         label.set_xalign(0.0)
         label.set_justify(Gtk.Justification.LEFT)
@@ -180,9 +182,11 @@ class SpeechBubble:
             # then refine the allocation as GTK and XWayland settle at startup.
             # This avoids briefly fading in at the transient window's default
             # coordinates during Mochi's spawn sequence.
+            self._window.queue_resize()
             self._position_x11()
             GLib.idle_add(self._position_x11)
             GLib.timeout_add(24, self._position_x11)
+            GLib.timeout_add(50, self._position_x11)
             self._follow_source_id = GLib.timeout_add(
                 self.FOLLOW_INTERVAL_MS,
                 self._follow_x11,
@@ -457,17 +461,13 @@ class SpeechBubble:
         owner_x, owner_y = owner_position
         owner_width = max(1, self._owner.get_width())
         owner_height = max(1, self._owner.get_height())
-        width = self._window.get_width()
-        height = self._window.get_height()
-        if width <= 1 or height <= 1:
-            # Window not yet allocated — query the natural size from the
-            # content so we don't use stale hardcoded fallback dimensions that
-            # would cause clipping when text is longer than the default.
-            _min, natural = self._window.get_preferred_size()
-            if width <= 1:
-                width = max(218, natural.width) if natural.width > 1 else 218
-            if height <= 1:
-                height = max(46, natural.height) if natural.height > 1 else 46
+        _min, natural = self._window.get_preferred_size()
+        width = max(self._window.get_width(), natural.width)
+        height = max(self._window.get_height(), natural.height)
+        if width <= 1:
+            width = max(218, natural.width) if natural.width > 1 else 218
+        if height <= 1:
+            height = max(46, natural.height) if natural.height > 1 else 46
 
         owner_scale = self._x11_coordinate_scale(self._owner)
         bubble_scale = self._x11_coordinate_scale(self._window)

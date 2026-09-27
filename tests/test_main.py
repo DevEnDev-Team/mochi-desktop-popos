@@ -14,6 +14,16 @@ class DisplayBackendTests(unittest.TestCase):
         self.assertTrue(configure_display_backend(environment))
         self.assertEqual(environment["GDK_BACKEND"], "x11")
 
+    def test_cosmic_wayland_selects_xwayland(self) -> None:
+        environment = {
+            "XDG_SESSION_TYPE": "wayland",
+            "XDG_CURRENT_DESKTOP": "COSMIC",
+            "DISPLAY": ":0",
+        }
+
+        self.assertTrue(configure_display_backend(environment))
+        self.assertEqual(environment["GDK_BACKEND"], "x11")
+
     def test_session_default_wayland_backend_is_overridden(self) -> None:
         environment = {
             "XDG_SESSION_TYPE": "wayland",

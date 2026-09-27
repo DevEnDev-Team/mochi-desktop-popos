@@ -35,19 +35,23 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def configure_display_backend(environment: MutableMapping[str, str]) -> bool:
-    """Use XWayland for the pet on GNOME, following Codex's Linux approach."""
-    desktop = environment.get("XDG_CURRENT_DESKTOP", "").casefold()
-    is_gnome_wayland = (
+    """Use XWayland for the pet on GNOME and COSMIC, following Codex's Linux approach."""
+    desktop = (
+        environment.get("XDG_CURRENT_DESKTOP", "")
+        + ":"
+        + environment.get("XDG_SESSION_DESKTOP", "")
+    ).casefold()
+    is_xwayland_desktop = (
         environment.get("XDG_SESSION_TYPE", "").casefold() == "wayland"
-        and "gnome" in desktop
+        and ("gnome" in desktop or "cosmic" in desktop)
         and bool(environment.get("DISPLAY"))
     )
-    if not is_gnome_wayland or environment.get("MOCHI_NATIVE_WAYLAND") == "1":
+    if not is_xwayland_desktop or environment.get("MOCHI_NATIVE_WAYLAND") == "1":
         return False
 
-    # Mutter does not expose layer shell. XWayland gives this small standalone
-    # buddy the transparent, freely movable window path used by Codex's pet,
-    # while the rest of the desktop remains native Wayland.
+    # Mutter and cosmic-comp do not expose layer shell without special packages.
+    # XWayland gives this small standalone buddy the transparent, freely movable
+    # window path used by Codex's pet, while the rest of the desktop remains native Wayland.
     environment["GDK_BACKEND"] = "x11"
     return True
 
@@ -74,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     if selected_xwayland:
         logging.getLogger(__name__).info(
-            "GNOME Wayland detected; using XWayland for the buddy window"
+            "GNOME/COSMIC Wayland detected; using XWayland for the buddy window"
         )
 
     config = ConfigStore()

@@ -39,11 +39,89 @@ class _ClientMessageEvent(ctypes.Structure):
     ]
 
 
+class _XSetWindowAttributes(ctypes.Structure):
+    _fields_ = [
+        ("background_pixmap", ctypes.c_ulong),
+        ("background_pixel", ctypes.c_ulong),
+        ("border_pixmap", ctypes.c_ulong),
+        ("border_pixel", ctypes.c_ulong),
+        ("bit_gravity", ctypes.c_int),
+        ("win_gravity", ctypes.c_int),
+        ("backing_store", ctypes.c_int),
+        ("backing_planes", ctypes.c_ulong),
+        ("backing_pixel", ctypes.c_ulong),
+        ("save_under", ctypes.c_int),
+        ("event_mask", ctypes.c_long),
+        ("do_not_propagate_mask", ctypes.c_long),
+        ("override_redirect", ctypes.c_int),
+        ("colormap", ctypes.c_ulong),
+        ("cursor", ctypes.c_ulong),
+    ]
+
+
+class _XWMHints(ctypes.Structure):
+    _fields_ = [
+        ("flags", ctypes.c_long),
+        ("input", ctypes.c_int),
+        ("initial_state", ctypes.c_int),
+        ("icon_pixmap", ctypes.c_ulong),
+        ("icon_window", ctypes.c_ulong),
+        ("icon_x", ctypes.c_int),
+        ("icon_y", ctypes.c_int),
+        ("icon_mask", ctypes.c_ulong),
+        ("window_group", ctypes.c_ulong),
+    ]
+
+
 class _XEvent(ctypes.Union):
     _fields_ = [
         ("client", _ClientMessageEvent),
         ("padding", ctypes.c_long * 24),
     ]
+
+
+def set_override_redirect(window: Gtk.Window, enabled: bool = True) -> bool:
+    """Set the X11 override_redirect attribute on an unmapped window.
+
+    This bypasses window manager decoration and placement entirely, preventing
+    compositors like cosmic-comp from adding server-side headerbars/borders or
+    intercepting XMoveWindow.
+    """
+    surface = window.get_surface()
+    if GdkX11 is None or not isinstance(surface, GdkX11.X11Surface):
+        return False
+
+    library_name = ctypes.util.find_library("X11")
+    if library_name is None:
+        return False
+
+    x11 = ctypes.CDLL(library_name)
+    x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
+    x11.XOpenDisplay.restype = ctypes.c_void_p
+    x11.XChangeWindowAttributes.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.POINTER(_XSetWindowAttributes),
+    ]
+    x11.XFlush.argtypes = [ctypes.c_void_p]
+    x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
+
+    display = x11.XOpenDisplay(None)
+    if not display:
+        return False
+
+    try:
+        attrs = _XSetWindowAttributes()
+        attrs.override_redirect = 1 if enabled else 0
+        # CWOverrideRedirect = (1 << 9)
+        x11.XChangeWindowAttributes(
+            display, surface.get_xid(), 1 << 9, ctypes.byref(attrs)
+        )
+        x11.XFlush(display)
+        return True
+    finally:
+        x11.XCloseDisplay(display)
 
 
 def request_keep_above(window: Gtk.Window) -> bool:
@@ -229,11 +307,11 @@ def apply_sticky_dock_properties(window: Gtk.Window) -> bool:
         # Window type must be set before the WM starts managing the window.
         # GdkX11 X11Surface.get_xid() is the same id the WM sees in
         # MapRequest, so writing it here is the correct pre-map step.
-        dock_atom = x11.XInternAtom(
-            display, b"_NET_WM_WINDOW_TYPE_DOCK", False
+        utility_atom = x11.XInternAtom(
+            display, b"_NET_WM_WINDOW_TYPE_UTILITY", False
         )
         type_prop = x11.XInternAtom(display, b"_NET_WM_WINDOW_TYPE", False)
-        type_values = (ctypes.c_ulong * 1)(dock_atom)
+        type_values = (ctypes.c_ulong * 1)(utility_atom)
         x11.XChangeProperty(
             display,
             window_id,
@@ -244,6 +322,20 @@ def apply_sticky_dock_properties(window: Gtk.Window) -> bool:
             ctypes.cast(type_values, ctypes.c_void_p),
             1,
         )
+
+        # Explicitly configure WM_HINTS so window managers know Mochi never takes
+        # input focus (avoiding active focus borders in environments like COSMIC).
+        x11.XSetWMHints.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_ulong,
+            ctypes.POINTER(_XWMHints),
+        ]
+        x11.XSetWMHints.restype = ctypes.c_int
+        hints = _XWMHints()
+        hints.flags = (1 << 0) | (1 << 1)  # InputHint | StateHint
+        hints.input = 0  # False: Does not accept input focus
+        hints.initial_state = 1  # NormalState
+        x11.XSetWMHints(display, window_id, ctypes.byref(hints))
 
         # State and desktop changes must go through ClientMessages once the
         # window is mapped so the WM owns the update, matching the protocol
@@ -294,6 +386,23 @@ def move_window(window: Gtk.Window, x: int, y: int) -> bool:
         return True
     finally:
         x11.XCloseDisplay(display)
+
+
+def raise_window(window: Gtk.Window) -> bool:
+    surface = window.get_surface()
+    if GdkX11 is None or not isinstance(surface, GdkX11.X11Surface):
+        return False
+    x11, display = _open_x11()
+    if display is None:
+        return False
+    try:
+        x11.XRaiseWindow.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+        x11.XRaiseWindow(display, surface.get_xid())
+        x11.XFlush(display)
+        return True
+    finally:
+        x11.XCloseDisplay(display)
+
 
 
 def get_window_position(window: Gtk.Window) -> tuple[int, int] | None:

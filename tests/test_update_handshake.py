@@ -41,4 +41,5 @@ def test_application_constructor_does_not_signal_before_activation(
 def test_activation_signals_only_after_window_is_presented() -> None:
     source = inspect.getsource(MochiApplication.do_activate)
 
-    assert source.index("window.present()") < source.index("signal_update_ready(")
+    show_call = "window.set_visible(True)" if "window.set_visible(True)" in source else "window.present()"
+    assert source.index(show_call) < source.index("signal_update_ready(")

@@ -13,7 +13,13 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
-from mochi.x11 import get_window_position, move_window, request_keep_above
+from mochi.x11 import (
+    get_window_position,
+    move_window,
+    raise_window,
+    request_keep_above,
+    set_override_redirect,
+)
 
 
 def _disable_focus_tree(widget: Gtk.Widget) -> None:
@@ -165,6 +171,8 @@ class SpeechBubble:
         if get_window_position(self._owner) is not None:
             self._mode = "x11"
             self._window.set_opacity(0.0)
+            self._window.realize()
+            set_override_redirect(self._window, True)
             self._window.set_visible(True)
             serial = self._animation_serial
 
@@ -360,6 +368,7 @@ class SpeechBubble:
 
     def _on_window_map(self, _window: Gtk.Window) -> None:
         request_keep_above(self._window)
+        raise_window(self._window)
         GLib.idle_add(self._position_x11)
 
     def _follow_x11(self) -> bool:
@@ -520,6 +529,7 @@ class SpeechBubble:
         x = max(round(left), min(x, max(round(left), round(right - bubble_width))))
         y = max(round(top), min(y, max(round(top), round(bottom - bubble_height))))
         move_window(self._window, x, y)
+        raise_window(self._window)
         return GLib.SOURCE_REMOVE
 
     def _cancel_sources(self) -> None:

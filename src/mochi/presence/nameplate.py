@@ -25,7 +25,13 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, Gtk  # noqa: E402
 
 from mochi.sprites import ANIMATIONS
-from mochi.x11 import get_window_position, move_window
+from mochi.x11 import (
+    get_window_position,
+    move_window,
+    raise_window,
+    request_keep_above,
+    set_override_redirect,
+)
 
 
 class Nameplate:
@@ -133,6 +139,8 @@ class Nameplate:
             self._mode = "x11"
             if self._popover.get_visible():
                 self._popover.popdown()
+            self._window.realize()
+            set_override_redirect(self._window, True)
             self._window.set_visible(True)
             self.update_position()
         else:
@@ -349,6 +357,7 @@ class Nameplate:
         x = max(round(left), min(x, max(round(left), round(right - plate_width))))
         y = max(round(top), y)
         move_window(self._window, x, y)
+        raise_window(self._window)
 
     @staticmethod
     def _install_css(display: Gdk.Display) -> None:

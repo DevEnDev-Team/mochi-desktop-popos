@@ -15,7 +15,13 @@ from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 from mochi.care import BondState
 from mochi.emotes import EmoteDefinition
 from mochi.sprites import ANIMATIONS, SpriteAtlas
-from mochi.x11 import get_window_position, move_window, request_keep_above
+from mochi.x11 import (
+    get_window_position,
+    move_window,
+    raise_window,
+    request_keep_above,
+    set_override_redirect,
+)
 
 
 LEVEL_UP_REACTION_LINE = "we're closer now! 🌱"
@@ -456,6 +462,8 @@ class BondProgressOverlay:
             self._mode = "x11"
             if self._popover.get_visible():
                 self._popover.popdown()
+            self._window.realize()
+            set_override_redirect(self._window, True)
             self._window.set_visible(True)
             self.update_position()
         else:
@@ -733,9 +741,11 @@ class BondProgressOverlay:
         x = max(round(left), min(x, max(round(left), round(right - overlay_width))))
         y = max(round(top), y)
         move_window(self._window, x, y)
+        raise_window(self._window)
 
     def _on_window_map(self, _window: Gtk.Window) -> None:
         request_keep_above(self._window)
+        raise_window(self._window)
         GLib.idle_add(self._position_x11)
 
     @staticmethod

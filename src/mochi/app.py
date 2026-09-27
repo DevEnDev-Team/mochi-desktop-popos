@@ -14,7 +14,7 @@ from mochi.config import ConfigStore
 from mochi.presence.click_dialogue import PresenceBuddy, PresenceX11Buddy
 from mochi.sound import SoundEvent, SoundManager
 from mochi.windowing import WindowPlacement
-from mochi.x11 import request_keep_above
+from mochi.x11 import request_keep_above, set_override_redirect
 
 
 def signal_update_ready(path: Path) -> None:
@@ -53,7 +53,7 @@ class MochiApplication(Gtk.Application):
     def do_activate(self) -> None:
         existing = self.get_active_window()
         if existing is not None:
-            existing.present()
+            existing.set_visible(True)
             return
 
         window = Gtk.ApplicationWindow(application=self)
@@ -62,6 +62,8 @@ class MochiApplication(Gtk.Application):
         window.set_decorated(False)
         window.set_resizable(False)
         window.set_focusable(False)
+        window.set_can_focus(False)
+        window.set_can_target(True)
         size = self.config.load_size()
         window.set_default_size(size, size)
 
@@ -237,7 +239,11 @@ class MochiApplication(Gtk.Application):
             window.get_display(), css, Gtk.STYLE_PROVIDER_PRIORITY_USER
         )
 
-        window.present()
+        if not placement.layer_shell_enabled:
+            window.realize()
+            set_override_redirect(window, True)
+
+        window.set_visible(True)
         if self.update_ready_file is not None:
             signal_update_ready(self.update_ready_file)
         if not self.preview_animations:

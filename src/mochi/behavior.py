@@ -11,7 +11,7 @@ from mochi.state import MochiState
 
 
 CLICK_REACTION_STATES = frozenset(
-    (MochiState.BOUNCING, MochiState.SQUISHING)
+    (MochiState.BOUNCING, MochiState.SQUISHING, MochiState.IDLE_EMOTE)
 )
 REACTION_STATES = CLICK_REACTION_STATES | frozenset(
     (

@@ -676,6 +676,38 @@ class Buddy(Gtk.DrawingArea):
         self._start_click_reaction()
 
     def _start_click_reaction(self) -> None:
+        now = time.monotonic()
+        last_time = getattr(self, "_last_click_reaction_time", 0.0)
+        self._last_click_reaction_time = now
+        if now - last_time < 2.5:
+            self._click_streak = getattr(self, "_click_streak", 0) + 1
+        else:
+            self._click_streak = 1
+
+        unlocked_emotes = tuple(
+            getattr(
+                self,
+                "_available_catalogue_emote_animations",
+                lambda: (),
+            )()
+        )
+        emote_candidates = [e for e in unlocked_emotes if e != "bounce"]
+        if emote_candidates and (
+            self._click_streak >= 3
+            or (self._click_streak >= 2 and random.random() < 0.50)
+        ):
+            chosen = random.choice(emote_candidates)
+            self._sound.play(SoundEvent.PET)
+            self._recent_click_reactions = (
+                *self._recent_click_reactions[-1:],
+                chosen,
+            )
+            self._logger.debug(
+                "Click streak (%d) triggered emote: %s", self._click_streak, chosen
+            )
+            self._play_autonomous_catalogue_emote(chosen)
+            return
+
         animation = choose_click_reaction(self._recent_click_reactions)
         self._sound.play(SoundEvent.PET)
         self._recent_click_reactions = (
@@ -758,9 +790,9 @@ class Buddy(Gtk.DrawingArea):
             self._play_animation("typing_loop", after=None)
         elif next_animation == "typing_outro":
             self._play_animation("typing_outro", after="idle")
-        elif self._click_reactions.consume() and self._current_animation in (
-            "bounce",
-            "squish",
+        elif self._click_reactions.consume() and (
+            self._current_animation in ("bounce", "squish")
+            or self.state.current is MochiState.IDLE_EMOTE
         ):
             self._transition_to(MochiState.IDLE)
             self._start_click_reaction()
@@ -918,8 +950,12 @@ class Buddy(Gtk.DrawingArea):
 
     def _schedule_idle_action(self) -> None:
         if self._idle_action_source_id is None:
+            interval = self.IDLE_ACTION_INTERVAL_SECONDS
+            last_interaction = getattr(self, "_last_interaction", None)
+            if last_interaction is not None and time.monotonic() - last_interaction < 60.0:
+                interval = (max(8, interval[0] // 2), max(15, interval[1] // 2))
             self._idle_action_source_id = GLib.timeout_add_seconds(
-                random.randint(*self.IDLE_ACTION_INTERVAL_SECONDS),
+                random.randint(*interval),
                 self._choose_idle_action,
             )
 
@@ -1047,7 +1083,15 @@ class Buddy(Gtk.DrawingArea):
                 return GLib.SOURCE_REMOVE
 
             emote_start = self.IDLE_WALK_CHANCE if allow_walk else 0.0
-            emote_end = emote_start + self.IDLE_CATALOGUE_EMOTE_CHANCE
+            emote_chance = self.IDLE_CATALOGUE_EMOTE_CHANCE
+            bond_state = getattr(self, "_bond_state", None)
+            if bond_state is not None and getattr(bond_state, "level", 1) > 1:
+                emote_chance = min(0.45, emote_chance + (bond_state.level - 1) * 0.05)
+            last_interaction = getattr(self, "_last_interaction", None)
+            if last_interaction is not None and time.monotonic() - last_interaction < 90.0:
+                emote_chance = min(0.50, emote_chance + 0.10)
+
+            emote_end = emote_start + emote_chance
             if unlocked_emotes and emote_start <= roll < emote_end:
                 self._play_autonomous_catalogue_emote(random.choice(unlocked_emotes))
             return GLib.SOURCE_REMOVE

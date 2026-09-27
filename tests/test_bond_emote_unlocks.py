@@ -58,3 +58,11 @@ def test_developer_menu_has_session_only_unlock_all_action() -> None:
     assert "Session-only QA override" in menu_source
     assert "self._dev_unlock_all_emotes = not self._dev_unlock_all_emotes" in callback_source
     assert "_persist_bond_state" not in callback_source
+
+
+def test_repeated_clicks_can_trigger_unlocked_emote() -> None:
+    source = inspect.getsource(Buddy._start_click_reaction)
+
+    assert "_click_streak" in source
+    assert "_available_catalogue_emote_animations" in source
+    assert "_play_autonomous_catalogue_emote" in source

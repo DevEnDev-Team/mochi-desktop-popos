@@ -462,10 +462,18 @@ class BondProgressOverlay:
             self._mode = "x11"
             if self._popover.get_visible():
                 self._popover.popdown()
+            # Set opacity to 0 before making the window visible so the X11
+            # black background never shows through before GTK has had a chance
+            # to paint the card. This mirrors SpeechBubble's proven strategy.
+            was_visible = self._window.get_visible()
+            if not was_visible:
+                self._window.set_opacity(0.0)
             self._window.realize()
             set_override_redirect(self._window, True)
             self._window.set_visible(True)
             self.update_position()
+            if not was_visible:
+                GLib.idle_add(self._restore_opacity)
         else:
             self._mode = "wayland"
             if self._window.get_visible():
@@ -473,6 +481,11 @@ class BondProgressOverlay:
             self.update_position()
             if not self._popover.get_visible():
                 self._popover.popup()
+
+    def _restore_opacity(self) -> bool:
+        """Restore full opacity after GTK has painted the first frame."""
+        self._window.set_opacity(1.0)
+        return GLib.SOURCE_REMOVE
 
     def update_position(self) -> None:
         if not self.visible:

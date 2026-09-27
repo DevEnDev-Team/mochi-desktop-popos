@@ -592,6 +592,7 @@ class SpeechBubble:
             .mochi-speech-text {
                 font-size: 12px;
                 font-weight: 500;
+                color: @window_fg_color;
             }
             .mochi-speech-text.mochi-speech-typing {
                 color: alpha(@window_fg_color, 0.62);

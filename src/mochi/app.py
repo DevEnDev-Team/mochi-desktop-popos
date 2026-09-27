@@ -11,6 +11,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gio, Gtk  # noqa: E402
 
 from mochi.config import ConfigStore
+from mochi.i18n import set_language
 from mochi.presence.click_dialogue import PresenceBuddy, PresenceX11Buddy
 from mochi.sound import SoundEvent, SoundManager
 from mochi.windowing import WindowPlacement
@@ -41,6 +42,7 @@ class MochiApplication(Gtk.Application):
             flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
         )
         self.config = config
+        set_language(config.load_language())
         self.preview_animations = preview_animations
         self.update_ready_file = update_ready_file
         self._logger = logging.getLogger(__name__)
@@ -83,9 +85,11 @@ class MochiApplication(Gtk.Application):
         css = Gtk.CssProvider()
         css.load_from_string(
             """
-            /* Only the buddy surface should be transparent. Menu windows are
-             * separate toplevels and must retain an opaque GTK background. */
-            window.mochi-buddy-window {
+            /* Presentation overlay windows must retain transparent background. */
+            window.mochi-buddy-window,
+            window.mochi-speech-window,
+            window.mochi-bond-window,
+            window.mochi-nameplate-window {
                 background-color: transparent;
             }
 
@@ -232,6 +236,12 @@ class MochiApplication(Gtk.Application):
             popover.mochi-speech-popover > arrow {
                 background-color: @theme_bg_color;
                 border-color: alpha(#79c98b, 0.42);
+            }
+
+            .mochi-bond-card {
+                background-color: @theme_bg_color;
+                color: @theme_fg_color;
+                border-color: alpha(#79c98b, 0.44);
             }
             """
         )

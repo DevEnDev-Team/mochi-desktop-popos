@@ -13,6 +13,7 @@ gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from mochi.focus import FocusAdvance, FocusPhase, FocusPlan, FocusSession
+from mochi.i18n import tr
 from mochi.menu_window import _window_coordinate_scale, menu_position_for_anchor
 from mochi.sound import FocusAmbienceManager
 from mochi.sprites import ANIMATIONS
@@ -635,11 +636,11 @@ class FocusSessionMixin:
     def _build_context_menu(self):
         menu = super()._build_context_menu()
         button, _ = self._make_menu_button(
-            "Focus with Mochi",
+            tr("menu.focus"),
             "alarm-symbolic",
             self._show_focus_from_context_menu,
         )
-        button.set_tooltip_text("Start a gentle focus session with Mochi")
+        button.set_tooltip_text(tr("menu.focus_tooltip"))
         self._register_context_menu_row(
             "focus",
             button,

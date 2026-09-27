@@ -146,5 +146,19 @@ class ConfigStoreTests(unittest.TestCase):
             )
 
 
+    def test_language_defaults_and_round_trips(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            store = ConfigStore(path)
+
+            self.assertIn(store.load_language(), ("en", "fr"))
+            store.save_language("fr")
+            self.assertEqual(store.load_language(), "fr")
+            store.save_language("en")
+            self.assertEqual(store.load_language(), "en")
+            store.save_language("invalid_lang")
+            self.assertEqual(store.load_language(), "en")
+
+
 if __name__ == "__main__":
     unittest.main()

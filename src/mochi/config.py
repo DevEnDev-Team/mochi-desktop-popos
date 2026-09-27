@@ -116,6 +116,26 @@ class ConfigStore:
         self._save(data)
         self._logger.debug("Edge roam: %s", bool(enabled))
 
+    def load_language(self) -> str:
+        """Return the persisted language code or detect from system locale."""
+        from mochi.i18n import LANGUAGES, detect_system_language
+        try:
+            language = self._load().get("language")
+            if isinstance(language, str) and language in LANGUAGES:
+                return language
+        except (FileNotFoundError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            pass
+        return detect_system_language()
+
+    def save_language(self, language: str) -> None:
+        """Persist user language preference."""
+        from mochi.i18n import DEFAULT_LANGUAGE, LANGUAGES
+        val = language if language in LANGUAGES else DEFAULT_LANGUAGE
+        data = self._load_or_empty()
+        data["language"] = val
+        self._save(data)
+        self._logger.debug("Language saved: %s", val)
+
 
     def load_update_checks_enabled(self) -> bool:
         try:

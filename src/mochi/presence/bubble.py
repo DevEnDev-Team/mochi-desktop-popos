@@ -68,6 +68,7 @@ class SpeechBubble:
         self._typing_step = 0
         self._pending_text: str | None = None
         self._pending_duration_seconds: float | None = None
+        self._last_x11_pos: tuple[int, int] | None = None
 
         self._label = self._make_label()
         self._bubble_box = self._make_bubble_content(self._label)
@@ -331,6 +332,7 @@ class SpeechBubble:
         return GLib.SOURCE_REMOVE
 
     def _finish_hide(self) -> None:
+        self._last_x11_pos = None
         if self._window.get_visible():
             self._window.hide()
         if self._popover.get_visible():
@@ -538,8 +540,10 @@ class SpeechBubble:
         y = y_above if y_above >= top else y_below
         x = max(round(left), min(x, max(round(left), round(right - bubble_width))))
         y = max(round(top), min(y, max(round(top), round(bottom - bubble_height))))
-        move_window(self._window, x, y)
-        raise_window(self._window)
+        if getattr(self, "_last_x11_pos", None) != (x, y):
+            self._last_x11_pos = (x, y)
+            move_window(self._window, x, y)
+            raise_window(self._window)
         return GLib.SOURCE_REMOVE
 
     def _cancel_sources(self) -> None:

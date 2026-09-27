@@ -62,6 +62,7 @@ class Nameplate:
         self._name = "Mochi"
         self._status: str | None = None
         self._mode: str | None = None
+        self._last_x11_pos: tuple[int, int] | None = None
 
         self._label = self._make_label()
         self._content = self._make_content(self._label)
@@ -152,6 +153,7 @@ class Nameplate:
                 self._popover.popup()
 
     def hide(self) -> None:
+        self._last_x11_pos = None
         if self._window.get_visible():
             self._window.hide()
         if self._popover.get_visible():
@@ -356,8 +358,10 @@ class Nameplate:
         y = round(visible_top - plate_height - gap)
         x = max(round(left), min(x, max(round(left), round(right - plate_width))))
         y = max(round(top), y)
-        move_window(self._window, x, y)
-        raise_window(self._window)
+        if getattr(self, "_last_x11_pos", None) != (x, y):
+            self._last_x11_pos = (x, y)
+            move_window(self._window, x, y)
+            raise_window(self._window)
 
     @staticmethod
     def _install_css(display: Gdk.Display) -> None:

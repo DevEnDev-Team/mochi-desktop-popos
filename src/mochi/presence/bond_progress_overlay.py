@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 import logging
+import time
 
 import gi
 
@@ -14,6 +15,7 @@ from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from mochi.care import BondState
 from mochi.emotes import EmoteDefinition
+from mochi.i18n import get_language
 from mochi.sprites import ANIMATIONS, SpriteAtlas
 from mochi.x11 import (
     get_window_position,
@@ -65,6 +67,8 @@ class BondProgressOverlay:
     LEVEL_UP_DISPLAY_MS = 3200
     EMOTE_UNLOCK_DISPLAY_MS = 3400
     LEVEL_UP_MIN_HOLD_SECONDS = 3.2
+    FADE_IN_SECONDS = 0.18
+    FADE_OUT_SECONDS = 0.22
 
     def __init__(
         self,
@@ -84,6 +88,8 @@ class BondProgressOverlay:
         self._hide_source_id: int | None = None
         self._gain_source_id: int | None = None
         self._level_up_source_id: int | None = None
+        self._animation_source_id: int | None = None
+        self._animation_serial = 0
         self._activity = "bonding"
         self._gain_text = ""
         self._level_up_active = False
@@ -91,6 +97,7 @@ class BondProgressOverlay:
         self._level_up_previous_level: int | None = None
         self._state = BondState()
         self._atlas = atlas
+        self._last_x11_pos: tuple[int, int] | None = None
 
         (
             self._content,
@@ -340,10 +347,13 @@ class BondProgressOverlay:
         self._emote_unlock_active = False
         self._level_up_previous_level = previous_level
         self._active = True
+        is_fr = get_language() == "fr"
+        title = "✦  NIVEAU SUPÉRIEUR !  ✦" if is_fr else "✦  LEVEL UP!  ✦"
+        subtitle = "on est plus proches maintenant ! 🌱" if is_fr else LEVEL_UP_REACTION_LINE
         for label in (self._level_up_title, self._popover_level_up_title):
-            label.set_text("✦  LEVEL UP!  ✦")
+            label.set_text(title)
         for label in (self._level_up_subtitle, self._popover_level_up_subtitle):
-            label.set_text(LEVEL_UP_REACTION_LINE)
+            label.set_text(subtitle)
         for preview in self._unlock_previews:
             preview.set_emote(None)
         self._set_level_up_content(True)
@@ -372,14 +382,22 @@ class BondProgressOverlay:
         self._set_level_up_content(True)
         self._set_level_up_highlight(True)
 
+        is_fr = get_language() == "fr"
+        title = "✦  NOUVELLE ÉMOTE DÉBLOQUÉE !  ✦" if is_fr else "✦  NEW EMOTE UNLOCKED!  ✦"
         for label in (self._level_up_title, self._popover_level_up_title):
-            label.set_text("✦  NEW EMOTE UNLOCKED!  ✦")
+            label.set_text(title)
         for label in (self._level_up_level, self._popover_level_up_level):
             label.set_text(emote.label)
-        subtitle = (
-            f"{emote.rarity.upper()} · Bond Lv. {emote.required_bond_level} · "
-            "now part of Mochi's idle moods"
-        )
+        if is_fr:
+            subtitle = (
+                f"{emote.rarity.upper()} · Niveau {emote.required_bond_level} · "
+                "fait maintenant partie des humeurs de Mochi"
+            )
+        else:
+            subtitle = (
+                f"{emote.rarity.upper()} · Bond Lv. {emote.required_bond_level} · "
+                "now part of Mochi's idle moods"
+            )
         for label in (self._level_up_subtitle, self._popover_level_up_subtitle):
             label.set_text(subtitle)
         for preview in self._unlock_previews:
@@ -400,13 +418,25 @@ class BondProgressOverlay:
         if activity is not None:
             self._activity = activity.strip() or "bonding"
 
-        level_text = f"Bond Lv. {self._state.level}"
+        is_fr = get_language() == "fr"
         activity_text = self._activity
+        if is_fr:
+            level_text = f"Niveau d'amitié {self._state.level}"
+            level_up_level_text = f"Niveau d'amitié {self._state.level}"
+            if activity_text == "sharing a snack":
+                activity_text = "partage un encas"
+            elif activity_text == "bonding":
+                activity_text = "complicité"
+            elif activity_text == "typing together":
+                activity_text = "travaille avec toi"
+        else:
+            level_text = f"Bond Lv. {self._state.level}"
+            level_up_level_text = f"Bond Level {self._state.level}"
+
         xp_text = f"{self._state.xp} / {self._state.xp_required} XP"
         gain_text = self._gain_text
 
         if not self._emote_unlock_active:
-            level_up_level_text = f"Bond Level {self._state.level}"
             for label in (self._level_up_level, self._popover_level_up_level):
                 label.set_text(level_up_level_text)
 
@@ -461,6 +491,7 @@ class BondProgressOverlay:
 
     def suspend(self) -> None:
         """Temporarily yield the shared anchor to a speech bubble."""
+        self._cancel_animation_timer()
         self._hide_surfaces()
 
     def resume(self) -> None:
@@ -470,31 +501,86 @@ class BondProgressOverlay:
             self._mode = "x11"
             if self._popover.get_visible():
                 self._popover.popdown()
-            # Set opacity to 0 before making the window visible so the X11
-            # black background never shows through before GTK has had a chance
-            # to paint the card. This mirrors SpeechBubble's proven strategy.
-            was_visible = self._window.get_visible()
-            if not was_visible:
+            if not self._window.get_visible():
                 self._window.set_opacity(0.0)
-            self._window.realize()
-            set_override_redirect(self._window, True)
-            self._window.set_visible(True)
-            self._window.queue_resize()
-            self.update_position()
-            if not was_visible:
-                GLib.idle_add(self._restore_opacity)
+                self._window.realize()
+                set_override_redirect(self._window, True)
+                self._window.set_visible(True)
+                self._window.queue_resize()
+                self._position_x11()
+                GLib.idle_add(self._position_x11)
+                GLib.timeout_add(24, self._position_x11)
+                GLib.timeout_add(50, self._position_x11)
+                self._animation_serial += 1
+                self._fade(
+                    self._window,
+                    0.0,
+                    1.0,
+                    self.FADE_IN_SECONDS,
+                    self._animation_serial,
+                )
+            else:
+                self.update_position()
         else:
             self._mode = "wayland"
             if self._window.get_visible():
                 self._window.hide()
-            self.update_position()
             if not self._popover.get_visible():
+                self._position_wayland_anchor()
+                self._popover.set_opacity(0.0)
                 self._popover.popup()
+                self._animation_serial += 1
+                self._fade(
+                    self._popover,
+                    0.0,
+                    1.0,
+                    self.FADE_IN_SECONDS,
+                    self._animation_serial,
+                )
+            else:
+                self.update_position()
 
     def _restore_opacity(self) -> bool:
         """Restore full opacity after GTK has painted the first frame."""
         self._window.set_opacity(1.0)
         return GLib.SOURCE_REMOVE
+
+    def _fade(
+        self,
+        widget: Gtk.Widget,
+        start_opacity: float,
+        end_opacity: float,
+        duration_seconds: float,
+        serial: int,
+        *,
+        on_finished: Callable[[], None] | None = None,
+    ) -> None:
+        if self._animation_source_id is not None:
+            try:
+                GLib.source_remove(self._animation_source_id)
+            except Exception:
+                pass
+            self._animation_source_id = None
+        started = time.monotonic()
+
+        def animate() -> bool:
+            if serial != self._animation_serial:
+                self._animation_source_id = None
+                return GLib.SOURCE_REMOVE
+            elapsed = time.monotonic() - started
+            progress = min(1.0, elapsed / max(0.001, duration_seconds))
+            eased = 1.0 - (1.0 - progress) ** 3
+            widget.set_opacity(
+                start_opacity + (end_opacity - start_opacity) * eased
+            )
+            if progress >= 1.0:
+                self._animation_source_id = None
+                if on_finished is not None:
+                    on_finished()
+                return GLib.SOURCE_REMOVE
+            return GLib.SOURCE_CONTINUE
+
+        self._animation_source_id = GLib.timeout_add(16, animate)
 
     def update_position(self) -> None:
         if not self.visible:
@@ -509,6 +595,7 @@ class BondProgressOverlay:
         self._cancel_hide_timer()
         self._cancel_gain_timer()
         self._cancel_level_up_timer()
+        self._cancel_animation_timer()
         self._active = False
         self._level_up_active = False
         self._emote_unlock_active = False
@@ -521,7 +608,21 @@ class BondProgressOverlay:
     def _finish_hide(self) -> bool:
         self._hide_source_id = None
         self._active = False
-        self._hide_surfaces()
+        widget = self._window if self._mode == "x11" else self._popover
+        if widget.get_visible():
+            self._animation_serial += 1
+            serial = self._animation_serial
+            start = float(widget.get_opacity())
+            self._fade(
+                widget,
+                start,
+                0.0,
+                self.FADE_OUT_SECONDS,
+                serial,
+                on_finished=self._hide_surfaces,
+            )
+        else:
+            self._hide_surfaces()
         return GLib.SOURCE_REMOVE
 
     def _finish_gain_flash(self) -> bool:
@@ -562,11 +663,17 @@ class BondProgressOverlay:
             callback()
 
     def _hide_surfaces(self) -> None:
+        self._cancel_animation_timer()
+        self._last_x11_pos = None
         if self._window.get_visible():
             self._window.hide()
         if self._popover.get_visible():
             self._popover.popdown()
         self._mode = None
+
+    def _cancel_animation_timer(self) -> None:
+        self._animation_serial += 1
+        self._remove_source("_animation_source_id")
 
     def _cancel_hide_timer(self) -> None:
         self._remove_source("_hide_source_id")
@@ -763,8 +870,11 @@ class BondProgressOverlay:
         y = round(visible_top - overlay_height - gap)
         x = max(round(left), min(x, max(round(left), round(right - overlay_width))))
         y = max(round(top), y)
-        move_window(self._window, x, y)
-        raise_window(self._window)
+        if getattr(self, "_last_x11_pos", None) != (x, y):
+            self._last_x11_pos = (x, y)
+            move_window(self._window, x, y)
+            raise_window(self._window)
+        return GLib.SOURCE_REMOVE
 
     def _on_window_map(self, _window: Gtk.Window) -> None:
         request_keep_above(self._window)
@@ -777,14 +887,17 @@ class BondProgressOverlay:
         provider.load_from_string(
             """
             window.mochi-bond-window {
+                background-color: transparent;
                 background: transparent;
             }
             .mochi-bond-shell {
+                background-color: transparent;
                 background: transparent;
             }
             .mochi-bond-card {
-                background: alpha(@window_bg_color, 0.97);
-                color: @window_fg_color;
+                background-color: @theme_bg_color;
+                background: alpha(@theme_bg_color, 0.97);
+                color: @theme_fg_color;
                 border: 1px solid alpha(#79c98b, 0.44);
                 border-radius: 11px;
                 box-shadow: 0 5px 18px alpha(black, 0.16);
@@ -795,8 +908,9 @@ class BondProgressOverlay:
                 box-shadow: 0 4px 16px alpha(#79c98b, 0.18);
             }
             .mochi-bond-card.mochi-bond-level-up {
-                background: alpha(@window_bg_color, 0.98);
-                color: @window_fg_color;
+                background-color: @theme_bg_color;
+                background: alpha(@theme_bg_color, 0.98);
+                color: @theme_fg_color;
                 border: 2px solid alpha(#a8f2b4, 0.92);
                 border-radius: 14px;
                 box-shadow: 0 7px 24px alpha(#79c98b, 0.34);

@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from mochi.drag_motion import DragMotionModel
+from mochi.i18n import tr
 from mochi.state import MochiState
 from mochi.x11_buddy import X11Buddy
 
@@ -29,7 +30,7 @@ class X11BuddyDragTests(unittest.TestCase):
         with patch("mochi.x11_buddy.time.monotonic", return_value=100.0):
             X11Buddy._maybe_show_drag_speech(buddy)
 
-        bubble.show.assert_called_once_with("wheee!", duration_seconds=2.5)
+        bubble.show.assert_called_once_with(tr("dialogue.wheee"), duration_seconds=2.5)
         self.assertEqual(buddy._last_drag_speech_at, 100.0)
 
     def test_existing_speech_is_preserved_when_drag_starts(self) -> None:
@@ -68,7 +69,7 @@ class X11BuddyDragTests(unittest.TestCase):
 
         with patch("mochi.x11_buddy.time.monotonic", return_value=130.0):
             X11Buddy._maybe_show_drag_speech(buddy)
-        bubble.show.assert_called_once_with("wheee!", duration_seconds=2.5)
+        bubble.show.assert_called_once_with(tr("dialogue.wheee"), duration_seconds=2.5)
         self.assertEqual(buddy._last_drag_speech_at, 130.0)
 
     def test_drag_speech_respects_quiet_mode(self) -> None:

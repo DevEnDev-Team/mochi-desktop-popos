@@ -9,6 +9,7 @@ from gi.repository import GLib, Gtk
 
 from mochi.update.bootstrap import bootstrap_updater
 from mochi.update.checker import GitHubUpdateSource, UpdateChecker
+from mochi.i18n import tr
 from mochi.update.model import UpdateCheckResult, UpdateStatus, UpdateTarget
 from mochi.update.storage import InstallMetadataStore
 from mochi.update.window import UpdateWindow
@@ -49,7 +50,7 @@ class UpdateControlsMixin:
     def _build_context_menu(self):
         menu = super()._build_context_menu()
         button, self._update_menu_label = self._make_menu_button(
-            "Check for updates",
+            tr("menu.check_updates"),  # "Check for updates"
             "software-update-available-symbolic",
             self._on_update_menu_clicked,
         )

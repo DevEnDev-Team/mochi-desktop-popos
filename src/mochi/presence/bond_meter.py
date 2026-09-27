@@ -28,6 +28,7 @@ from mochi.focus import FocusPhase
 from mochi.sprites import ANIMATIONS
 from mochi.state import MochiState, PresentationState
 
+from mochi.i18n import tr
 from .bond_progress_overlay import BondProgressOverlay
 
 
@@ -135,7 +136,7 @@ class BondMeterMixin:
         return row
 
     def _bond_label_text(self) -> str:
-        return f"Bond Lv. {self._bond_state.level}"
+        return tr("menu.bond_level", level=self._bond_state.level)
 
     def _set_bond_state_for_ui(self, state: BondState) -> None:
         self._bond_state = BondState(level=state.level, xp=state.xp)

@@ -27,6 +27,7 @@ from mochi.behavior import (
     choose_walk_animation,
 )
 from mochi.config import ConfigStore
+from mochi.i18n import set_language
 from mochi.developer_shortcut import DeveloperShortcutMonitor
 from mochi.drag_motion import DragMotionModel, DragPoseSelector
 from mochi.file_activity import FileActivityMonitor
@@ -132,6 +133,8 @@ class Buddy(Gtk.DrawingArea):
         self._window = window
         self._placement = placement
         self._config = config
+        self._language = self._config.load_language()
+        set_language(self._language)
         self._sound = sound
         self._on_click = on_click
         self._preview_mode = preview_mode
@@ -331,6 +334,12 @@ class Buddy(Gtk.DrawingArea):
 
     def _toggle_sleep(self, *args, **kwargs):
         return _menu_ui_for(self)._toggle_sleep(*args, **kwargs)
+
+    def _toggle_language(self, *args, **kwargs):
+        return _menu_ui_for(self)._toggle_language(*args, **kwargs)
+
+    def _rebuild_context_menu(self, *args, **kwargs):
+        return _menu_ui_for(self)._rebuild_context_menu(*args, **kwargs)
 
     def _test_walk(self, *args, **kwargs):
         return _menu_ui_for(self)._test_walk(*args, **kwargs)

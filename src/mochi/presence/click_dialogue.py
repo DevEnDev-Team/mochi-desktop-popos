@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import random
 
+from mochi.i18n import tr
 from mochi.quick_start import QuickStartMixin
 from mochi.sound import SoundEvent
 
@@ -26,6 +27,13 @@ from .terminal_cowork import TerminalCoworkMixin
 from .update_controls import UpdateControlsMixin
 
 
+CLICK_BURST_KEYS = (
+    "click.owie",
+    "click.soft",
+    "click.gentle",
+    "click.eep",
+    "click.tiny_creature",
+)
 CLICK_BURST_PHRASES = (
     "owie!",
     "hey, i'm soft!",
@@ -102,11 +110,12 @@ class ClickDialogueMixin:
         if bubble is None or not tuning.speech_enabled or tuning.quiet_mode:
             return False
 
+        available_phrases = tuple(tr(key) for key in CLICK_BURST_KEYS)
         choices = tuple(
             phrase
-            for phrase in CLICK_BURST_PHRASES
+            for phrase in available_phrases
             if phrase != self._last_click_burst_phrase
-        ) or CLICK_BURST_PHRASES
+        ) or available_phrases
         text = random.choice(choices)
         self._last_click_burst_phrase = text
 

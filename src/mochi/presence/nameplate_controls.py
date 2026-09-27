@@ -36,6 +36,7 @@ import time
 
 from gi.repository import Gtk
 
+from mochi.i18n import tr
 from mochi.mood import MochiMood, MoodModel
 from mochi.mood_behavior import behavior_profile_for, resolve_mood_animation
 from mochi.state import MochiState
@@ -105,17 +106,19 @@ class NameplateMixin:
         status_block = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
         status_block.set_can_target(False)
 
-        title = Gtk.Label(label="Mochi status")
+        title = Gtk.Label(label=tr("menu.status_title"))
         title.set_xalign(0)
         title.set_can_target(False)
         title.add_css_class("mochi-menu-section")
         status_block.append(title)
 
         state_row, self._context_state_value = self._make_context_status_row(
-            "MochiState"
+            tr("menu.status_state")
         )
         status_block.append(state_row)
-        mood_row, self._context_mood_value = self._make_context_status_row("Mood")
+        mood_row, self._context_mood_value = self._make_context_status_row(
+            tr("menu.status_mood")
+        )
         status_block.append(mood_row)
 
         self._register_context_menu_row(
@@ -479,11 +482,21 @@ class NameplateMixin:
         super()._on_drag_update(gesture, offset_x, offset_y)
         if self._nameplate is not None and self._nameplate.visible:
             self._nameplate.update_position()
+        if (
+            getattr(self, "_bond_progress_overlay", None) is not None
+            and self._bond_progress_overlay.visible
+        ):
+            self._bond_progress_overlay.update_position()
 
     def _change_size(self, scale) -> None:
         super()._change_size(scale)
         if self._nameplate is not None and self._nameplate.visible:
             self._nameplate.update_position()
+        if (
+            getattr(self, "_bond_progress_overlay", None) is not None
+            and self._bond_progress_overlay.visible
+        ):
+            self._bond_progress_overlay.update_position()
 
     def shutdown_presence(self) -> None:
         if self._nameplate is not None:

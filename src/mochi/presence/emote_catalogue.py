@@ -21,6 +21,7 @@ from mochi.emotes import (
     next_emote_unlock,
 )
 from mochi.emote_shortcut import EmoteCatalogueShortcutMonitor
+from mochi.i18n import tr
 from mochi.sprites import ANIMATIONS, SpriteAtlas
 
 
@@ -88,10 +89,10 @@ def emote_status_text(
     unlock_all: bool = False,
 ) -> str:
     if not emote.available:
-        return "COMING SOON"
+        return tr("catalogue.coming_soon")
     if emote.is_unlocked(state, unlock_all=unlock_all):
-        return "UNLOCKED"
-    return f"BOND LV. {emote.required_bond_level}"
+        return tr("catalogue.unlocked")
+    return tr("catalogue.bond_req", level=emote.required_bond_level)
 
 
 CATALOGUE_CSS = """
@@ -800,7 +801,7 @@ class EmoteCatalogueWindow:
             # Fallback keeps isolated tests/embedders usable without coupling the
             # catalogue to Mochi's tiny always-on-top buddy as a transient child.
             self.window = Gtk.Window()
-        self.window.set_title("Mochi Emote Catalogue")
+        self.window.set_title(tr("catalogue.title"))
         self.window.set_modal(False)
         self.window.set_hide_on_close(True)
         self.window.set_resizable(True)
@@ -843,7 +844,7 @@ class EmoteCatalogueWindow:
         kicker.add_css_class("mochi-emote-kicker")
         hero.append(kicker)
 
-        title = Gtk.Label(label="Emote Catalogue")
+        title = Gtk.Label(label=tr("catalogue.header_title"))
         title.set_xalign(0)
         title.add_css_class("mochi-emote-title")
         hero.append(title)
@@ -883,7 +884,7 @@ class EmoteCatalogueWindow:
 
         self._previous_page_button = Gtk.Button(label="‹")
         self._previous_page_button.add_css_class("mochi-emote-page-button")
-        self._previous_page_button.set_tooltip_text("Previous emote page")
+        self._previous_page_button.set_tooltip_text(tr("catalogue.prev_tooltip"))
         self._previous_page_button.connect("clicked", self._on_previous_page)
         pagination.append(self._previous_page_button)
 
@@ -895,7 +896,7 @@ class EmoteCatalogueWindow:
 
         self._next_page_button = Gtk.Button(label="›")
         self._next_page_button.add_css_class("mochi-emote-page-button")
-        self._next_page_button.set_tooltip_text("Next emote page")
+        self._next_page_button.set_tooltip_text(tr("catalogue.next_tooltip"))
         self._next_page_button.connect("clicked", self._on_next_page)
         pagination.append(self._next_page_button)
 
@@ -982,12 +983,12 @@ class EmoteCatalogueWindow:
 
         if self._unlock_all:
             self._next_label.set_text(
-                f"Bond Lv. {self._state.level} · all available emotes unlocked (developer) ✦"
+                tr("catalogue.all_unlocked_dev", level=self._state.level)
             )
             self._progress.set_fraction(1.0)
         elif next_unlock is None:
             self._next_label.set_text(
-                f"Bond Lv. {self._state.level} · all current emotes unlocked ✦"
+                tr("catalogue.all_unlocked", level=self._state.level)
             )
             self._progress.set_fraction(1.0)
         else:
@@ -1005,8 +1006,13 @@ class EmoteCatalogueWindow:
             )
             self._progress.set_fraction(min(1.0, max(0.0, fraction)))
             self._next_label.set_text(
-                f"Bond Lv. {self._state.level} · Next: {next_unlock.label} "
-                f"at Lv. {target} · {remaining:,} XP to go"
+                tr(
+                    "catalogue.next_unlock",
+                    level=self._state.level,
+                    name=next_unlock.label,
+                    target=target,
+                    remaining=remaining,
+                )
             )
 
         self._canvas.refresh(

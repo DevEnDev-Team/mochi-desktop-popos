@@ -11,6 +11,8 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, Gtk  # noqa: E402
 
+from mochi.i18n import tr
+
 
 @dataclass(frozen=True)
 class QuickStartSection:
@@ -335,14 +337,14 @@ class QuickStartMixin:
     def _make_quick_start_menu_button(self) -> Gtk.Button:
         button = Gtk.Button()
         button.add_css_class("mochi-menu-row")
-        button.set_tooltip_text("A quick introduction to Mochi")
+        button.set_tooltip_text(tr("menu.quick_start_tooltip"))
 
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         badge = Gtk.Label(label="?")
         badge.set_width_chars(2)
         row.append(badge)
 
-        text = Gtk.Label(label="What can Mochi do?")
+        text = Gtk.Label(label=tr("menu.quick_start"))  # "What can Mochi do?"
         text.set_xalign(0)
         text.set_hexpand(True)
         row.append(text)

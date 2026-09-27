@@ -16,6 +16,7 @@ gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from mochi.config import ConfigStore
+from mochi.i18n import get_language, set_language, tr
 from mochi.menu_window import MenuWindow
 from mochi.sound import SoundEvent
 from mochi.state import MochiState
@@ -146,10 +147,10 @@ class BuddyMenuController:
         header.append(sprout)
 
         header_text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        title = Gtk.Label(label="Mochi")
+        title = Gtk.Label(label=tr("menu.title"))
         title.set_xalign(0)
         title.add_css_class("mochi-menu-title")
-        subtitle = Gtk.Label(label="your tiny desktop buddy")
+        subtitle = Gtk.Label(label=tr("menu.subtitle"))
         subtitle.set_xalign(0)
         subtitle.add_css_class("mochi-menu-subtitle")
         header_text.append(title)
@@ -162,19 +163,33 @@ class BuddyMenuController:
         self._buddy._register_context_menu_row("separator", separator, animated=False)
 
         self._buddy._sleep_button, self._buddy._sleep_label = self._buddy._make_menu_button(
-            "Sleep",
+            tr("menu.sleep"),  # "Sleep"
             "weather-clear-night-symbolic",
             self._buddy._toggle_sleep,
         )
         self._buddy._register_context_menu_row("sleep", self._buddy._sleep_button)
 
         close_button, _ = self._buddy._make_menu_button(
-            "Close",
+            tr("menu.close"),  # "Close"
             "window-close-symbolic",
             self._buddy._quit_from_context_menu,
         )
         close_button.add_css_class("mochi-menu-secondary")
         self._buddy._register_context_menu_row("close", close_button)
+
+        self._buddy._language_button, self._buddy._language_label = (
+            self._buddy._make_menu_button(
+                tr("menu.language"),
+                "preferences-desktop-locale-symbolic",
+                self._buddy._toggle_language,
+            )
+        )
+        self._buddy._language_button.set_tooltip_text(tr("menu.language_tooltip"))
+        self._buddy._register_context_menu_row(
+            "language",
+            self._buddy._language_button,
+            before="close",
+        )
 
         popover.set_child(card)
         return popover
@@ -478,7 +493,9 @@ class BuddyMenuController:
         # after this presentation path has established menu ownership.
         self._buddy._cancel_hover_heart()
         self._buddy._sleep_label.set_text(
-            "Wake up" if self._buddy.state.current is MochiState.SLEEPING else "Sleep"
+            tr("menu.wake_up")
+            if self._buddy.state.current is MochiState.SLEEPING
+            else tr("menu.sleep")
         )
         # Anchor the menu to Mochi's full sprite bounds rather than the exact
         # click point. MenuWindow can then keep the entire menu beside Mochi
@@ -576,6 +593,40 @@ class BuddyMenuController:
             self._buddy.queue_draw()
 
         self._buddy._close_context_menu_then(toggle)
+
+    def _toggle_language(self, _button: Gtk.Button | None = None) -> None:
+        current = get_language()
+        new_lang = "en" if current == "fr" else "fr"
+        set_language(new_lang)
+        self._buddy._config.save_language(new_lang)
+        self._buddy._logger.info("Language switched to %s", new_lang)
+        self._rebuild_context_menu()
+
+    def _rebuild_context_menu(self) -> None:
+        was_visible = bool(
+            getattr(self._buddy, "_context_menu", None)
+            and self._buddy._context_menu.get_visible()
+        )
+        if was_visible:
+            self._buddy._context_menu.popdown()
+            self._buddy._context_menu.close()
+        self._buddy._context_menu = self._buddy._build_context_menu()
+        self._buddy._context_menu.connect(
+            "closed", self._buddy._on_context_menu_closed
+        )
+        if was_visible:
+            rectangle = Gdk.Rectangle()
+            rectangle.x = 0
+            rectangle.y = 0
+            rectangle.width = max(1, self._buddy.get_width())
+            rectangle.height = max(1, self._buddy.get_height())
+            self._buddy._context_menu.set_pointing_to(rectangle)
+            self._buddy._context_menu_open = True
+            self._buddy._context_menu.popup()
+            self._buddy._animate_menu_open(
+                self._buddy._context_menu_content,
+                self._buddy._context_menu_animated_rows,
+            )
 
     def _test_walk(self, _button: Gtk.Button) -> None:
         def start_walk() -> None:

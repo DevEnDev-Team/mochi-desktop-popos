@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 
 from mochi.buddy import Buddy
+from mochi.i18n import tr
 from mochi.state import MochiState
 
 
@@ -63,11 +64,11 @@ class X11Buddy(Buddy):
         if now - last_spoken_at < self.DRAG_SPEECH_COOLDOWN_SECONDS:
             return
 
-        if bubble.show("wheee!", duration_seconds=self.DRAG_SPEECH_DURATION_SECONDS):
+        if bubble.show(tr("dialogue.wheee"), duration_seconds=self.DRAG_SPEECH_DURATION_SECONDS):
             self._last_drag_speech_at = now
             logger = getattr(self, "_logger", None)
             if logger is not None:
-                logger.debug("Drag dialogue: wheee!")
+                logger.debug("Drag dialogue: %s", tr("dialogue.wheee"))
 
     def _sample_x11_drag(self, render: bool = True) -> None:
         """Drive drag visuals from the pointer-owned target, not X11 readback.

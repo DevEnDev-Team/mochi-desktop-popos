@@ -952,7 +952,14 @@ class Buddy(Gtk.DrawingArea):
         if self._idle_action_source_id is None:
             interval = self.IDLE_ACTION_INTERVAL_SECONDS
             last_interaction = getattr(self, "_last_interaction", None)
-            if last_interaction is not None and time.monotonic() - last_interaction < 60.0:
+            if hasattr(self, "_stay_put"):
+                stay_put = self._stay_put
+                edge_roam = getattr(self, "_edge_roam", False)
+                if not stay_put and edge_roam:
+                    interval = (max(6, interval[0] // 3), max(14, interval[1] // 3))
+                elif not stay_put:
+                    interval = (max(10, interval[0] // 2), max(22, interval[1] // 2))
+            elif last_interaction is not None and time.monotonic() - last_interaction < 60.0:
                 interval = (max(8, interval[0] // 2), max(15, interval[1] // 2))
             self._idle_action_source_id = GLib.timeout_add_seconds(
                 random.randint(*interval),
@@ -1078,11 +1085,18 @@ class Buddy(Gtk.DrawingArea):
                 )()
             )
             roll = random.random()
-            if allow_walk and roll < self.IDLE_WALK_CHANCE:
+            walk_chance = self.IDLE_WALK_CHANCE
+            if allow_walk:
+                if getattr(self, "_edge_roam", False):
+                    walk_chance = 0.55
+                elif hasattr(self, "_stay_put") and not self._stay_put:
+                    walk_chance = 0.35
+
+            if allow_walk and roll < walk_chance:
                 self._start_walk()
                 return GLib.SOURCE_REMOVE
 
-            emote_start = self.IDLE_WALK_CHANCE if allow_walk else 0.0
+            emote_start = walk_chance if allow_walk else 0.0
             emote_chance = self.IDLE_CATALOGUE_EMOTE_CHANCE
             bond_state = getattr(self, "_bond_state", None)
             if bond_state is not None and getattr(bond_state, "level", 1) > 1:
@@ -1101,13 +1115,39 @@ class Buddy(Gtk.DrawingArea):
     def _start_walk(self) -> None:
         origin = self._placement.sync_from_window()
         distance = random.randint(60, 240)
-        angle = random.uniform(0, math.tau)
-        target = self._placement.clamp_position(
-            origin.x + round(math.cos(angle) * distance),
-            origin.y + round(math.sin(angle) * distance),
-        )
-        actual_distance = math.hypot(target.x - origin.x, target.y - origin.y)
-        if actual_distance < WalkMotion.MIN_DISTANCE:
+        target = None
+        actual_distance = 0.0
+
+        for _ in range(8):
+            angle = random.uniform(0, math.tau)
+            candidate = self._placement.clamp_position(
+                origin.x + round(math.cos(angle) * distance),
+                origin.y + round(math.sin(angle) * distance),
+            )
+            dist = math.hypot(candidate.x - origin.x, candidate.y - origin.y)
+            if dist >= WalkMotion.MIN_DISTANCE:
+                target = candidate
+                actual_distance = dist
+                break
+
+        if target is None:
+            monitor = self._placement._monitor_for_position(origin.x, origin.y)
+            if monitor is not None:
+                geom = monitor.get_geometry()
+                scale = self._placement._x11_coordinate_scale()
+                center_x = (geom.x + geom.width / 2) * scale
+                center_y = (geom.y + geom.height / 2) * scale
+                inward_angle = math.atan2(center_y - origin.y, center_x - origin.x)
+                candidate = self._placement.clamp_position(
+                    origin.x + round(math.cos(inward_angle) * distance),
+                    origin.y + round(math.sin(inward_angle) * distance),
+                )
+                dist = math.hypot(candidate.x - origin.x, candidate.y - origin.y)
+                if dist >= WalkMotion.MIN_DISTANCE:
+                    target = candidate
+                    actual_distance = dist
+
+        if target is None or actual_distance < WalkMotion.MIN_DISTANCE:
             return
 
         walk_name = choose_walk_animation(
@@ -1140,6 +1180,13 @@ class Buddy(Gtk.DrawingArea):
         progress = motion.progress(self._walk_elapsed_ms)
         x, y = motion.position_at(self._walk_elapsed_ms)
         self._placement.move_to(x, y)
+        if getattr(self, "_nameplate", None) is not None and self._nameplate.visible:
+            self._nameplate.update_position()
+        bubble = getattr(self, "_presence_bubble", None)
+        if bubble is not None and getattr(bubble, "visible", False):
+            follow_now = getattr(bubble, "follow_owner_now", None)
+            if callable(follow_now):
+                follow_now()
         if self.player.seek_progress(motion.animation_progress(self._walk_elapsed_ms)):
             self.queue_draw()
         if progress >= 1.0:

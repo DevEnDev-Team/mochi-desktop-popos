@@ -36,6 +36,7 @@ class PresenceBuddyMixin:
         self._presence_context_preview_selector: Gtk.DropDown | None = None
         self._stay_put = False
         self._stay_put_switch: Gtk.Switch | None = None
+        self._walk_start_pending = False
         self._presence_started_at = time.monotonic()
         self._presence_active_session_started_at = self._presence_started_at
         self._presence_bubble: SpeechBubble | None = None
@@ -52,6 +53,9 @@ class PresenceBuddyMixin:
         self._vscode_cowork_source_id: int | None = None
         self._vscode_coworking_active = False
         super().__init__(*args, **kwargs)
+
+        if hasattr(self, "_config") and hasattr(self._config, "load_stay_put"):
+            self._stay_put = self._config.load_stay_put()
 
         if self._preview_mode:
             return
@@ -179,12 +183,58 @@ class PresenceBuddyMixin:
 
         # Enabling Stay put while Mochi is already strolling should take effect
         # immediately. Manual dragging and developer-forced walks remain allowed.
-        if self._stay_put and self.state.current is MochiState.WALKING:
-            self._cancel_walk()
-            if self._transition_to(MochiState.IDLE):
-                self._play_animation("idle")
+        if self._stay_put:
+            self._walk_start_pending = False
+            if self.state.current is MochiState.WALKING:
+                self._cancel_walk()
+                if self._transition_to(MochiState.IDLE):
+                    self._play_animation("idle")
+        else:
+            if getattr(self, "_edge_roam", False):
+                self._edge_roam_start_pending = True
+                try_roam = getattr(self, "_try_start_pending_edge_roam", None)
+                if callable(try_roam):
+                    if self._context_menu_open:
+                        self._close_context_menu_then(try_roam)
+                    else:
+                        try_roam()
+            else:
+                self._walk_start_pending = True
+                if self._context_menu_open:
+                    self._close_context_menu_then(self._try_start_pending_walk)
+                else:
+                    self._try_start_pending_walk()
 
         self._logger.info("Stay put %s", "enabled" if self._stay_put else "disabled")
+
+    def _try_start_pending_walk(self) -> bool:
+        if getattr(self, "_stay_put", False) or not getattr(self, "_walk_start_pending", False):
+            return False
+        if self._context_menu_open:
+            return False
+        if self.state.current is MochiState.WALKING:
+            self._walk_start_pending = False
+            return True
+        if self.state.current is not MochiState.IDLE:
+            return False
+        self._start_walk()
+        if self.state.current is MochiState.WALKING:
+            self._walk_start_pending = False
+            return True
+        return False
+
+    def _on_context_menu_closed(self, popover) -> None:
+        super()._on_context_menu_closed(popover)
+        self._try_start_pending_walk()
+
+    def _on_developer_menu_closed(self, popover) -> None:
+        super()._on_developer_menu_closed(popover)
+        self._try_start_pending_walk()
+
+    def _maybe_resume_ambient_activity(self) -> bool:
+        if self._try_start_pending_walk():
+            return True
+        return super()._maybe_resume_ambient_activity()
 
     def _choose_idle_action(self) -> bool:
         """Keep catalogue emotes active while Stay put suppresses only walking."""

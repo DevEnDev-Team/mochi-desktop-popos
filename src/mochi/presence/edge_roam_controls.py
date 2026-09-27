@@ -26,6 +26,10 @@ class EdgeRoamMixin:
         # never bypasses the state machine or needs a retry timer.
         self._edge_roam_start_pending = False
         super().__init__(*args, **kwargs)
+        if hasattr(self, "_config") and hasattr(self._config, "load_edge_roam"):
+            self._edge_roam = self._config.load_edge_roam()
+            if self._edge_roam and not getattr(self, "_stay_put", False):
+                self._edge_roam_start_pending = True
 
     def _build_context_menu(self):
         popover = super()._build_context_menu()
@@ -113,6 +117,8 @@ class EdgeRoamMixin:
         edge roaming.
         """
         if not self._edge_roam or not self._edge_roam_start_pending:
+            return False
+        if getattr(self, "_stay_put", False):
             return False
         if self._context_menu_open:
             return False

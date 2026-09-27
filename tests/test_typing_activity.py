@@ -4,6 +4,7 @@ import unittest
 from mochi.typing_activity import (
     AtspiDeviceActivityBackend,
     AtspiTextActivityBackend,
+    CosmicCompKeyboardBackend,
     GnomeShellTypingPulseBackend,
     TypingActivityMonitor,
     TypingBurstDetector,
@@ -197,14 +198,15 @@ class TypingActivityMonitorTests(unittest.TestCase):
         self.assertEqual(preferred.start_calls, 1)
         self.assertEqual(fallback.start_calls, 0)
 
-    def test_default_runtime_prefers_shell_pulse_then_text_fallback(self) -> None:
+    def test_default_runtime_prefers_cosmic_then_shell_pulse_then_text_fallback(self) -> None:
         monitor = TypingActivityMonitor(
             on_typing_activity=lambda: None,
             on_typing_stopped=lambda: None,
         )
-        self.assertEqual(len(monitor._backends), 2)
-        self.assertIsInstance(monitor._backends[0], GnomeShellTypingPulseBackend)
-        self.assertIsInstance(monitor._backends[1], AtspiTextActivityBackend)
+        self.assertEqual(len(monitor._backends), 3)
+        self.assertIsInstance(monitor._backends[0], CosmicCompKeyboardBackend)
+        self.assertIsInstance(monitor._backends[1], GnomeShellTypingPulseBackend)
+        self.assertIsInstance(monitor._backends[2], AtspiTextActivityBackend)
 
     def test_failed_preferred_backend_falls_back(self) -> None:
         preferred = _FakeBackend("device", available=False, error="unavailable")
@@ -409,6 +411,128 @@ class DeviceCapabilityTests(unittest.TestCase):
         )
 
 
+class CosmicCompKeyboardBackendTests(unittest.TestCase):
+    class _Variant:
+        def __init__(self, _sig, value):
+            self.value = value
+
+        def unpack(self):
+            return self.value
+
+    class _GLib:
+        @classmethod
+        def Variant(cls, sig, value):
+            return CosmicCompKeyboardBackendTests._Variant(sig, value)
+
+        class VariantType:
+            @classmethod
+            def new(cls, sig):
+                return sig
+
+    class _Gio:
+        class BusType:
+            SESSION = object()
+
+        class DBusCallFlags:
+            NONE = object()
+
+        class DBusSignalFlags:
+            NONE = object()
+
+        class BusNameOwnerFlags:
+            NONE = object()
+
+        connection = None
+        owned_names = []
+        unowned_ids = []
+
+        @classmethod
+        def bus_get_sync(cls, _bus_type, _cancellable):
+            return cls.connection
+
+        @classmethod
+        def bus_own_name_on_connection(cls, connection, name, flags, on_acquired, on_lost):
+            cls.owned_names.append(name)
+            if on_acquired:
+                on_acquired(connection, name)
+            return 99
+
+        @classmethod
+        def bus_unown_name(cls, owner_id):
+            cls.unowned_ids.append(owner_id)
+
+    class _Connection:
+        def __init__(self, *, has_owner=True, watch_fails=False):
+            self.has_owner = has_owner
+            self.watch_fails = watch_fails
+            self.calls = []
+            self.unsubscribed = []
+            self.callback = None
+
+        def call_sync(self, dest, path, iface, method, *args):
+            self.calls.append((dest, path, iface, method))
+            if method == "NameHasOwner":
+                return CosmicCompKeyboardBackendTests._Variant("(b)", (self.has_owner,))
+            if method == "WatchKeyboard" and self.watch_fails:
+                raise RuntimeError("permission denied")
+            return None
+
+        def signal_subscribe(self, *args):
+            self.callback = args[-1]
+            return 42
+
+        def signal_unsubscribe(self, sub_id):
+            self.unsubscribed.append(sub_id)
+            self.callback = None
+
+    def _setup_backend(self, connection):
+        backend = CosmicCompKeyboardBackend()
+        gio = self._Gio
+        gio.connection = connection
+        gio.owned_names = []
+        gio.unowned_ids = []
+        glib = self._GLib
+        backend._load_gio = lambda: (gio, glib)
+        return backend
+
+    def test_fails_if_dbus_connection_unavailable(self) -> None:
+        backend = self._setup_backend(None)
+        self.assertFalse(backend.start(lambda: None))
+        self.assertIn("connection unavailable", backend.last_error)
+
+    def test_fails_if_cosmic_comp_not_present(self) -> None:
+        conn = self._Connection(has_owner=False)
+        backend = self._setup_backend(conn)
+        self.assertFalse(backend.start(lambda: None))
+        self.assertIn("not present", backend.last_error)
+
+    def test_successful_start_and_stop(self) -> None:
+        conn = self._Connection(has_owner=True)
+        backend = self._setup_backend(conn)
+        calls = 0
+
+        def on_activity():
+            nonlocal calls
+            calls += 1
+
+        self.assertTrue(backend.start(on_activity))
+        self.assertTrue(backend.active)
+        self.assertIn("org.gnome.Orca.KeyboardMonitor", self._Gio.owned_names)
+
+        # Simulate key press
+        conn.callback(None, None, None, None, None, self._Variant("(b)", (True,)))
+        self.assertEqual(calls, 1)
+
+        # Simulate key release
+        conn.callback(None, None, None, None, None, self._Variant("(b)", (False,)))
+        self.assertEqual(calls, 1)
+
+        backend.stop()
+        self.assertFalse(backend.active)
+        self.assertIn(42, conn.unsubscribed)
+        self.assertIn(99, self._Gio.unowned_ids)
+
+
 class BackendPrivacyTests(unittest.TestCase):
     class _ExplosivePayload:
         def __repr__(self) -> str:
@@ -428,6 +552,27 @@ class BackendPrivacyTests(unittest.TestCase):
         backend._on_activity = activity
         secret = self._ExplosivePayload()
         backend._on_key_pressed(object(), secret, secret, secret, secret)
+
+        self.assertEqual(calls, 1)
+        self.assertNotIn(secret, vars(backend).values())
+
+    def test_cosmic_backend_discards_signal_payload(self) -> None:
+        backend = CosmicCompKeyboardBackend()
+        calls = 0
+
+        def activity() -> None:
+            nonlocal calls
+            calls += 1
+
+        backend._on_activity = activity
+        secret = self._ExplosivePayload()
+
+        class MockParams:
+            def unpack(self):
+                # pressed=True, keysym, keycode, state, unichar
+                return (True, secret, secret, secret, secret)
+
+        backend._on_key_event(None, None, None, None, None, MockParams())
 
         self.assertEqual(calls, 1)
         self.assertNotIn(secret, vars(backend).values())
@@ -459,3 +604,4 @@ class BackendPrivacyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

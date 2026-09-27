@@ -14,7 +14,7 @@ class TypingFeedbackGuardTests(unittest.TestCase):
             on_typing_activity=lambda: None,
             on_typing_stopped=lambda: None,
         )
-        backend = monitor._backends[1]
+        backend = next(b for b in monitor._backends if isinstance(b, AtspiTextActivityBackend))
         self.assertIsInstance(backend, AtspiTextActivityBackend)
 
         calls = 0

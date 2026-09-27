@@ -166,6 +166,151 @@ class GnomeShellTypingPulseBackend:
             callback()
 
 
+class CosmicCompKeyboardBackend:
+    """Anonymous keyboard activity from COSMIC compositor's KeyboardMonitor interface."""
+
+    name = "COSMIC compositor keyboard activity"
+    DEST = "com.system76.CosmicComp"
+    PATH = "/org/freedesktop/a11y/Manager"
+    INTERFACE = "org.freedesktop.a11y.KeyboardMonitor"
+    SIGNAL_NAME = "KeyEvent"
+    NAME_TO_OWN = "org.gnome.Orca.KeyboardMonitor"
+
+    def __init__(self) -> None:
+        self.last_error: str | None = None
+        self._on_activity: Callable[[], None] | None = None
+        self._connection = None
+        self._owner_id: int | None = None
+        self._sub_id: int | None = None
+        self._active = False
+
+    @property
+    def active(self) -> bool:
+        return self._active
+
+    @staticmethod
+    def _load_gio():
+        import gi
+
+        from gi.repository import Gio, GLib
+
+        return Gio, GLib
+
+    def start(self, on_activity: Callable[[], None]) -> bool:
+        if self._active:
+            return True
+        self.last_error = None
+        self._on_activity = on_activity
+        try:
+            Gio, GLib = self._load_gio()
+            self._connection = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+            if self._connection is None:
+                self.last_error = "Session D-Bus connection unavailable"
+                return False
+
+            has_owner = self._connection.call_sync(
+                "org.freedesktop.DBus",
+                "/org/freedesktop/DBus",
+                "org.freedesktop.DBus",
+                "NameHasOwner",
+                GLib.Variant("(s)", (self.DEST,)),
+                GLib.VariantType.new("(b)"),
+                Gio.DBusCallFlags.NONE,
+                200,
+                None,
+            ).unpack()[0]
+            if not has_owner:
+                self.last_error = f"{self.DEST} is not present"
+                return False
+
+            self._sub_id = self._connection.signal_subscribe(
+                self.DEST,
+                self.INTERFACE,
+                self.SIGNAL_NAME,
+                self.PATH,
+                None,
+                Gio.DBusSignalFlags.NONE,
+                self._on_key_event,
+            )
+
+            def on_acquired(conn, _name):
+                try:
+                    conn.call_sync(
+                        self.DEST,
+                        self.PATH,
+                        self.INTERFACE,
+                        "WatchKeyboard",
+                        None,
+                        None,
+                        Gio.DBusCallFlags.NONE,
+                        1000,
+                        None,
+                    )
+                    self._active = True
+                except Exception as exc:
+                    self.last_error = f"WatchKeyboard call failed: {exc}"
+
+            def on_lost(_conn, _name):
+                self._active = False
+
+            self._owner_id = Gio.bus_own_name_on_connection(
+                self._connection,
+                self.NAME_TO_OWN,
+                Gio.BusNameOwnerFlags.NONE,
+                on_acquired,
+                on_lost,
+            )
+            return True
+        except Exception as exc:
+            self.last_error = f"{type(exc).__name__}: {exc}"
+            self.stop()
+            return False
+
+    def stop(self) -> None:
+        self._active = False
+        if self._connection is not None:
+            if self._sub_id is not None:
+                try:
+                    self._connection.signal_unsubscribe(self._sub_id)
+                except Exception:
+                    pass
+                self._sub_id = None
+            if self._owner_id is not None:
+                try:
+                    Gio, _ = self._load_gio()
+                    Gio.bus_unown_name(self._owner_id)
+                except Exception:
+                    pass
+                self._owner_id = None
+            try:
+                self._connection.call_sync(
+                    self.DEST,
+                    self.PATH,
+                    self.INTERFACE,
+                    "UnwatchKeyboard",
+                    None,
+                    None,
+                    Gio.DBusCallFlags.NONE,
+                    500,
+                    None,
+                )
+            except Exception:
+                pass
+        self._connection = None
+        self._on_activity = None
+
+    def _on_key_event(self, _conn, _sender, _path, _iface, _signal, params) -> None:
+        # PRIVACY BOUNDARY: Only inspect the `pressed` boolean.
+        # Keycode, keysym, modifiers and character content are discarded.
+        if params is not None and self._on_activity is not None:
+            try:
+                pressed = params.unpack()[0]
+                if pressed:
+                    self._on_activity()
+            except Exception:
+                pass
+
+
 class AtspiDeviceActivityBackend:
     """Broad GNOME/Wayland keyboard activity via Atspi.DeviceA11yManager.
 
@@ -402,6 +547,7 @@ class TypingActivityMonitor:
         # the runtime fallback because Mochi's own animated speech labels can
         # otherwise generate a self-sustaining feedback loop.
         self._backends = tuple(backends) if backends is not None else (
+            CosmicCompKeyboardBackend(),
             GnomeShellTypingPulseBackend(),
             AtspiTextActivityBackend(allow_text_changed=False),
         )

@@ -37,7 +37,7 @@ def _make_harness() -> _MoodHarness:
     harness.state = SimpleNamespace(current=MochiState.IDLE)
     harness.reject_transition = False
     harness._current_animation = "idle"
-    harness.IDLE_BREATHING_ENABLED = Buddy.IDLE_BREATHING_ENABLED
+    harness.IDLE_BREATHING_ENABLED = False
     harness.player = SimpleNamespace(animation=ANIMATIONS["idle"])
     harness.played = []
 

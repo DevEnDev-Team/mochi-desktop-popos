@@ -105,7 +105,7 @@ class Buddy(Gtk.DrawingArea):
     IDLE_ACTION_INTERVAL_SECONDS = (20, 45)
     IDLE_WALK_CHANCE = 0.10
     IDLE_CATALOGUE_EMOTE_CHANCE = 0.20
-    IDLE_BREATHING_ENABLED = False
+    IDLE_BREATHING_ENABLED = True
     PREVIEW_ANIMATIONS = (
         "default",
         "idle",

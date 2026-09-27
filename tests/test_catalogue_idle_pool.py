@@ -26,6 +26,7 @@ class IdleEmoteHarness:
         self._idle_resume_position = None
         self._click_reactions = ClickReactionBuffer()
         self._mood_model = MoodModel()
+        self.IDLE_BREATHING_ENABLED = False
         self.player = SimpleNamespace(animation=None, play=self._play)
         self.played = []
         self.walks = 0

@@ -39,7 +39,7 @@ class DragVisualTests(unittest.TestCase):
             _maybe_resume_ambient_activity=Mock(return_value=False),
             queue_draw=Mock(),
             TICK_MS=Buddy.TICK_MS,
-            IDLE_BREATHING_ENABLED=Buddy.IDLE_BREATHING_ENABLED,
+            IDLE_BREATHING_ENABLED=False,
             atlas=SpriteAtlas(),
         )
         for name in (

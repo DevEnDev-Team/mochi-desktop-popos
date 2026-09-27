@@ -665,6 +665,18 @@ class BuddyMenuController:
         emote_window = getattr(self._buddy, "_emote_catalogue_window", None)
         if emote_window is not None and hasattr(emote_window, "set_dark_theme"):
             emote_window.set_dark_theme(enabled)
+        nameplate = getattr(self._buddy, "_nameplate", None)
+        if nameplate is not None and hasattr(nameplate, "set_dark_theme"):
+            nameplate.set_dark_theme(enabled)
+        bond_overlay = getattr(self._buddy, "_bond_progress_overlay", None)
+        if bond_overlay is not None and hasattr(bond_overlay, "set_dark_theme"):
+            bond_overlay.set_dark_theme(enabled)
+        quick_start = getattr(self._buddy, "_quick_start_window", None)
+        if quick_start is not None and hasattr(quick_start, "set_dark_theme"):
+            quick_start.set_dark_theme(enabled)
+        focus_window = getattr(self._buddy, "_focus_window", None)
+        if focus_window is not None and hasattr(focus_window, "set_dark_theme"):
+            focus_window.set_dark_theme(enabled)
 
 
     def _rebuild_context_menu(self) -> None:

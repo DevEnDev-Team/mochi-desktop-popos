@@ -78,11 +78,13 @@ class BondProgressOverlay:
         logger: logging.Logger | None = None,
         on_level_up_finished: Callable[[], None] | None = None,
         atlas: SpriteAtlas | None = None,
+        dark_theme: bool = False,
     ) -> None:
         self._owner = owner
         self._anchor = anchor_widget
         self._logger = logger or logging.getLogger(__name__)
         self._on_level_up_finished = on_level_up_finished
+        self._dark_theme = bool(dark_theme)
         self._active = False
         self._mode: str | None = None
         self._hide_source_id: int | None = None
@@ -162,6 +164,10 @@ class BondProgressOverlay:
         self._popover.set_can_target(False)
         self._popover.add_css_class("mochi-bond-popover")
         self._popover.set_child(self._popover_content)
+
+        if self._dark_theme:
+            self._window.add_css_class("mochi-dark-theme")
+            self._popover.add_css_class("mochi-dark-theme")
 
         self._install_css(owner.get_display())
         self.update(BondState())
@@ -308,6 +314,16 @@ class BondProgressOverlay:
     @property
     def presentation_active(self) -> bool:
         return self._level_up_active or self._emote_unlock_active
+
+    def set_dark_theme(self, enabled: bool) -> None:
+        self._dark_theme = bool(enabled)
+        for target in (self._window, self._popover):
+            if target is None:
+                continue
+            if self._dark_theme:
+                target.add_css_class("mochi-dark-theme")
+            else:
+                target.remove_css_class("mochi-dark-theme")
 
     def show_activity(self, state: BondState, activity: str) -> None:
         self._cancel_hide_timer()
@@ -991,6 +1007,57 @@ class BondProgressOverlay:
             }
             popover.mochi-bond-popover > arrow {
                 background: alpha(@window_bg_color, 0.97);
+                border-color: alpha(#79c98b, 0.44);
+            }
+            window.mochi-bond-window.mochi-dark-theme .mochi-bond-card,
+            popover.mochi-bond-popover.mochi-dark-theme .mochi-bond-card,
+            .mochi-dark-theme .mochi-bond-card {
+                background: alpha(#1e1e24, 0.97);
+                color: #f4f4f5;
+                border: 1px solid alpha(#79c98b, 0.44);
+                box-shadow: 0 5px 18px alpha(black, 0.45);
+            }
+            window.mochi-bond-window.mochi-dark-theme .mochi-bond-card.mochi-bond-level-up,
+            popover.mochi-bond-popover.mochi-dark-theme .mochi-bond-card.mochi-bond-level-up,
+            .mochi-dark-theme .mochi-bond-card.mochi-bond-level-up {
+                background: alpha(#1e1e24, 0.98);
+                color: #f4f4f5;
+                border: 2px solid alpha(#a8f2b4, 0.92);
+                box-shadow: 0 7px 24px alpha(#79c98b, 0.34);
+            }
+            window.mochi-bond-window.mochi-dark-theme .mochi-level-up-level,
+            popover.mochi-bond-popover.mochi-dark-theme .mochi-level-up-level,
+            .mochi-dark-theme .mochi-level-up-level {
+                color: #f4f4f5;
+            }
+            window.mochi-bond-window.mochi-dark-theme .mochi-level-up-subtitle,
+            popover.mochi-bond-popover.mochi-dark-theme .mochi-level-up-subtitle,
+            .mochi-dark-theme .mochi-level-up-subtitle {
+                color: alpha(#f4f4f5, 0.68);
+            }
+            window.mochi-bond-window.mochi-dark-theme .mochi-bond-level,
+            popover.mochi-bond-popover.mochi-dark-theme .mochi-bond-level,
+            .mochi-dark-theme .mochi-bond-level {
+                color: #f4f4f5;
+            }
+            window.mochi-bond-window.mochi-dark-theme .mochi-bond-activity,
+            popover.mochi-bond-popover.mochi-dark-theme .mochi-bond-activity,
+            .mochi-dark-theme .mochi-bond-activity {
+                color: alpha(#f4f4f5, 0.62);
+            }
+            window.mochi-bond-window.mochi-dark-theme .mochi-bond-xp,
+            popover.mochi-bond-popover.mochi-dark-theme .mochi-bond-xp,
+            .mochi-dark-theme .mochi-bond-xp {
+                color: alpha(#f4f4f5, 0.62);
+            }
+            window.mochi-bond-window.mochi-dark-theme progressbar.mochi-bond-progress trough,
+            popover.mochi-bond-popover.mochi-dark-theme progressbar.mochi-bond-progress trough,
+            .mochi-dark-theme progressbar.mochi-bond-progress trough {
+                background: alpha(white, 0.15);
+            }
+            popover.mochi-bond-popover.mochi-dark-theme > arrow,
+            .mochi-dark-theme popover.mochi-bond-popover > arrow {
+                background: alpha(#1e1e24, 0.97);
                 border-color: alpha(#79c98b, 0.44);
             }
             """

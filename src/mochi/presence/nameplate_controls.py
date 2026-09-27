@@ -81,6 +81,7 @@ class NameplateMixin:
             owner=self._window,
             anchor_widget=self,
             logger=self._logger,
+            dark_theme=getattr(self, "_dark_theme", False),
         )
         ## Debugging sad state, uncomment the following lines to refresh the nameplate and context status
         self._refresh_nameplate_content()

@@ -131,6 +131,16 @@ class DarkThemeTests(unittest.TestCase):
         mock_buddy._presence_bubble = mock_bubble
         mock_buddy._emote_catalogue_window = mock_catalogue
 
+        mock_nameplate = Mock()
+        mock_bond_overlay = Mock()
+        mock_quick_start = Mock()
+        mock_focus = Mock()
+
+        mock_buddy._nameplate = mock_nameplate
+        mock_buddy._bond_progress_overlay = mock_bond_overlay
+        mock_buddy._quick_start_window = mock_quick_start
+        mock_buddy._focus_window = mock_focus
+
         controller = BuddyMenuController(mock_buddy)
         button, switch = controller._make_dark_theme_row()
 
@@ -149,6 +159,10 @@ class DarkThemeTests(unittest.TestCase):
         mock_dev_menu.set_dark_theme.assert_called_with(True)
         mock_bubble.set_dark_theme.assert_called_with(True)
         mock_catalogue.set_dark_theme.assert_called_with(True)
+        mock_nameplate.set_dark_theme.assert_called_with(True)
+        mock_bond_overlay.set_dark_theme.assert_called_with(True)
+        mock_quick_start.set_dark_theme.assert_called_with(True)
+        mock_focus.set_dark_theme.assert_called_with(True)
 
         # Toggle to False
         controller._toggle_dark_theme()
@@ -159,6 +173,110 @@ class DarkThemeTests(unittest.TestCase):
         mock_dev_menu.set_dark_theme.assert_called_with(False)
         mock_bubble.set_dark_theme.assert_called_with(False)
         mock_catalogue.set_dark_theme.assert_called_with(False)
+        mock_nameplate.set_dark_theme.assert_called_with(False)
+        mock_bond_overlay.set_dark_theme.assert_called_with(False)
+        mock_quick_start.set_dark_theme.assert_called_with(False)
+        mock_focus.set_dark_theme.assert_called_with(False)
+
+    def test_nameplate_dark_theme_toggle_and_initial_flag(self) -> None:
+        from mochi.presence.nameplate import Nameplate
+
+        owner = Gtk.Window()
+        anchor = Gtk.Box()
+
+        plate_light = Nameplate(owner=owner, anchor_widget=anchor, dark_theme=False)
+        self.assertFalse(plate_light._window.has_css_class("mochi-dark-theme"))
+        self.assertFalse(plate_light._popover.has_css_class("mochi-dark-theme"))
+
+        plate_light.set_dark_theme(True)
+        self.assertTrue(plate_light._window.has_css_class("mochi-dark-theme"))
+        self.assertTrue(plate_light._popover.has_css_class("mochi-dark-theme"))
+
+        plate_light.set_dark_theme(False)
+        self.assertFalse(plate_light._window.has_css_class("mochi-dark-theme"))
+        self.assertFalse(plate_light._popover.has_css_class("mochi-dark-theme"))
+
+        plate_dark = Nameplate(owner=owner, anchor_widget=anchor, dark_theme=True)
+        self.assertTrue(plate_dark._window.has_css_class("mochi-dark-theme"))
+        self.assertTrue(plate_dark._popover.has_css_class("mochi-dark-theme"))
+
+    def test_bond_progress_overlay_dark_theme_toggle(self) -> None:
+        from mochi.presence.bond_progress_overlay import BondProgressOverlay
+
+        owner = Gtk.Window()
+        anchor = Gtk.Box()
+
+        overlay_light = BondProgressOverlay(owner=owner, anchor_widget=anchor, dark_theme=False)
+        self.assertFalse(overlay_light._window.has_css_class("mochi-dark-theme"))
+        self.assertFalse(overlay_light._popover.has_css_class("mochi-dark-theme"))
+
+        overlay_light.set_dark_theme(True)
+        self.assertTrue(overlay_light._window.has_css_class("mochi-dark-theme"))
+        self.assertTrue(overlay_light._popover.has_css_class("mochi-dark-theme"))
+
+        overlay_light.set_dark_theme(False)
+        self.assertFalse(overlay_light._window.has_css_class("mochi-dark-theme"))
+        self.assertFalse(overlay_light._popover.has_css_class("mochi-dark-theme"))
+
+        overlay_dark = BondProgressOverlay(owner=owner, anchor_widget=anchor, dark_theme=True)
+        self.assertTrue(overlay_dark._window.has_css_class("mochi-dark-theme"))
+        self.assertTrue(overlay_dark._popover.has_css_class("mochi-dark-theme"))
+
+    def test_quick_start_window_dark_theme_toggle(self) -> None:
+        from mochi.quick_start import QuickStartWindow
+
+        owner = Gtk.Window()
+        qs_light = QuickStartWindow(owner=owner, dark_theme=False)
+        self.assertFalse(qs_light.window.has_css_class("mochi-dark-theme"))
+
+        qs_light.set_dark_theme(True)
+        self.assertTrue(qs_light.window.has_css_class("mochi-dark-theme"))
+
+        qs_light.set_dark_theme(False)
+        self.assertFalse(qs_light.window.has_css_class("mochi-dark-theme"))
+
+        qs_dark = QuickStartWindow(owner=owner, dark_theme=True)
+        self.assertTrue(qs_dark.window.has_css_class("mochi-dark-theme"))
+
+    def test_focus_window_dark_theme_toggle(self) -> None:
+        from mochi.presence.focus_session import FocusWindow
+
+        owner = Gtk.Window()
+        fw_light = FocusWindow(
+            owner=owner,
+            on_start=Mock(),
+            on_pause=Mock(),
+            on_cancel=Mock(),
+            on_hidden=Mock(),
+            on_rain_enabled=Mock(),
+            on_rain_volume_changed=Mock(),
+            rain_available=False,
+            rain_enabled=False,
+            rain_volume=0.5,
+            dark_theme=False,
+        )
+        self.assertFalse(fw_light.window.has_css_class("mochi-dark-theme"))
+
+        fw_light.set_dark_theme(True)
+        self.assertTrue(fw_light.window.has_css_class("mochi-dark-theme"))
+
+        fw_light.set_dark_theme(False)
+        self.assertFalse(fw_light.window.has_css_class("mochi-dark-theme"))
+
+        fw_dark = FocusWindow(
+            owner=owner,
+            on_start=Mock(),
+            on_pause=Mock(),
+            on_cancel=Mock(),
+            on_hidden=Mock(),
+            on_rain_enabled=Mock(),
+            on_rain_volume_changed=Mock(),
+            rain_available=False,
+            rain_enabled=False,
+            rain_volume=0.5,
+            dark_theme=True,
+        )
+        self.assertTrue(fw_dark.window.has_css_class("mochi-dark-theme"))
 
 
 if __name__ == "__main__":

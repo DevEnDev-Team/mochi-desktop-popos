@@ -55,10 +55,12 @@ class Nameplate:
         owner: Gtk.Window,
         anchor_widget: Gtk.Widget,
         logger: logging.Logger | None = None,
+        dark_theme: bool = False,
     ) -> None:
         self._owner = owner
         self._anchor = anchor_widget
         self._logger = logger or logging.getLogger(__name__)
+        self._dark_theme = bool(dark_theme)
         self._name = "Mochi"
         self._status: str | None = None
         self._mode: str | None = None
@@ -98,6 +100,10 @@ class Nameplate:
         self._popover.set_can_target(False)
         self._popover.add_css_class("mochi-nameplate-popover")
         self._popover.set_child(self._popover_content)
+
+        if self._dark_theme:
+            self._window.add_css_class("mochi-dark-theme")
+            self._popover.add_css_class("mochi-dark-theme")
 
         self._install_css(owner.get_display())
         self._refresh_label_text()
@@ -166,6 +172,16 @@ class Nameplate:
         value = min(1.0, max(0.0, float(opacity)))
         self._window.set_opacity(value)
         self._popover.set_opacity(value)
+
+    def set_dark_theme(self, enabled: bool) -> None:
+        self._dark_theme = bool(enabled)
+        for target in (self._window, self._popover):
+            if target is None:
+                continue
+            if self._dark_theme:
+                target.add_css_class("mochi-dark-theme")
+            else:
+                target.remove_css_class("mochi-dark-theme")
 
     def set_name(self, name: str) -> None:
         self._name = name.strip() or "Mochi"
@@ -393,6 +409,19 @@ class Nameplate:
             popover.mochi-nameplate-popover > arrow {
                 background: alpha(@window_bg_color, 0.96);
                 border-color: alpha(#79c98b, 0.30);
+            }
+            window.mochi-nameplate-window.mochi-dark-theme .mochi-nameplate-text,
+            popover.mochi-nameplate-popover.mochi-dark-theme .mochi-nameplate-text,
+            .mochi-dark-theme .mochi-nameplate-text {
+                background: alpha(#1e1e24, 0.96);
+                color: #f4f4f5;
+                border: 1px solid alpha(#79c98b, 0.40);
+                box-shadow: 0 5px 18px alpha(black, 0.45);
+            }
+            popover.mochi-nameplate-popover.mochi-dark-theme > arrow,
+            .mochi-dark-theme popover.mochi-nameplate-popover > arrow {
+                background: alpha(#1e1e24, 0.96);
+                border-color: alpha(#79c98b, 0.40);
             }
             """
         )

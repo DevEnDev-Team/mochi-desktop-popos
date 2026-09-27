@@ -151,6 +151,12 @@ window.mochi-emote-catalogue.mochi-dark-theme .mochi-emote-header {
     background-color: #1e1e24;
     border-bottom: 1px solid alpha(white, 0.12);
 }
+window.mochi-emote-catalogue.mochi-dark-theme .mochi-emote-header-title {
+    color: #f4f4f5;
+}
+window.mochi-emote-catalogue.mochi-dark-theme .mochi-emote-title {
+    color: #f4f4f5;
+}
 window.mochi-emote-catalogue.mochi-dark-theme .mochi-emote-subtitle,
 window.mochi-emote-catalogue.mochi-dark-theme .mochi-emote-progress-copy {
     color: alpha(#f4f4f5, 0.68);
@@ -160,6 +166,32 @@ window.mochi-emote-catalogue.mochi-dark-theme .mochi-emote-page-label {
 }
 window.mochi-emote-catalogue.mochi-dark-theme .mochi-emote-footer {
     color: alpha(#f4f4f5, 0.48);
+}
+window.mochi-emote-catalogue.mochi-dark-theme button.mochi-emote-page-button {
+    background-image: none;
+    background-color: alpha(white, 0.10);
+    color: #f4f4f5;
+    border: 1px solid alpha(white, 0.18);
+}
+window.mochi-emote-catalogue.mochi-dark-theme button.mochi-emote-page-button:hover {
+    background-color: alpha(white, 0.16);
+    color: #ffffff;
+}
+window.mochi-emote-catalogue.mochi-dark-theme button.mochi-emote-page-button:active {
+    background-color: alpha(white, 0.22);
+}
+window.mochi-emote-catalogue.mochi-dark-theme button.mochi-emote-page-button:disabled {
+    opacity: 0.35;
+}
+window.mochi-emote-catalogue.mochi-dark-theme progressbar.mochi-emote-progress trough {
+    background-image: none;
+    background-color: alpha(white, 0.15);
+    border: none;
+}
+window.mochi-emote-catalogue.mochi-dark-theme progressbar.mochi-emote-progress progress {
+    background-image: none;
+    background-color: #79c98b;
+    border: none;
 }
 """
 
@@ -200,10 +232,12 @@ class EmoteCatalogueCanvas(Gtk.DrawingArea):
         *,
         atlas: SpriteAtlas,
         emotes: tuple[EmoteDefinition, ...] | None = None,
+        dark_theme: bool = False,
     ) -> None:
         super().__init__()
         self._atlas = atlas
         self._emotes = tuple(emotes or EMOTE_CATALOGUE[:EMOTES_PER_PAGE])
+        self._dark_theme = bool(dark_theme)
         self._state: BondState | None = None
         self._card_surfaces: list[cairo.ImageSurface] = []
         self._preview_surfaces: list[cairo.ImageSurface] = []
@@ -226,6 +260,13 @@ class EmoteCatalogueCanvas(Gtk.DrawingArea):
         motion.connect("motion", self._on_motion)
         motion.connect("leave", self._on_leave)
         self.add_controller(motion)
+
+    def set_dark_theme(self, enabled: bool) -> None:
+        new_val = bool(enabled)
+        if self._dark_theme != new_val:
+            self._dark_theme = new_val
+            self._card_surfaces = []
+            self.queue_draw()
 
     @classmethod
     def _card_origin(cls, index: int) -> tuple[float, float]:
@@ -522,13 +563,16 @@ class EmoteCatalogueCanvas(Gtk.DrawingArea):
 
         self._draw_ornaments(context, rarity)
 
+        title_colour = (
+            (0.96, 0.96, 0.96, 1) if self._dark_theme else (0.12, 0.12, 0.12, 1)
+        )
         self._draw_text(
             context,
             emote.label,
             126,
             42,
             17,
-            (0.12, 0.12, 0.12, 1),
+            title_colour,
             bold=True,
         )
         status = emote_status_text(
@@ -536,15 +580,19 @@ class EmoteCatalogueCanvas(Gtk.DrawingArea):
             self._state,
             unlock_all=self._unlock_all,
         )
-        status_colour = rarity.colour if unlocked else (0.38, 0.38, 0.38)
+        locked_colour = (0.65, 0.65, 0.68) if self._dark_theme else (0.38, 0.38, 0.38)
+        status_colour = rarity.colour if unlocked else locked_colour
         self._draw_text(context, status, 126, 62, 10, status_colour, bold=True)
+        detail_colour = (
+            (0.72, 0.72, 0.75, 1) if self._dark_theme else (0.40, 0.40, 0.40, 1)
+        )
         self._draw_text(
             context,
             self._detail(emote, unlocked),
             126,
             88,
             10,
-            (0.40, 0.40, 0.40, 1),
+            detail_colour,
         )
 
         badge_width = 92
@@ -806,11 +854,13 @@ class EmoteCatalogueWindow:
         owner: Gtk.Window,
         atlas: SpriteAtlas,
         logger: logging.Logger | None = None,
+        dark_theme: bool = False,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._state: BondState | None = None
         self._unlock_all = False
         self._current_page = 0
+        self._dark_theme = bool(dark_theme) or bool(getattr(owner, "_dark_theme", False))
 
         application = owner.get_application()
         if application is not None:
@@ -826,8 +876,8 @@ class EmoteCatalogueWindow:
         self.window.set_default_size(self.DEFAULT_WIDTH, self.DEFAULT_HEIGHT)
         self.window.set_size_request(880, 780)
         self.window.add_css_class("mochi-emote-catalogue")
-        if getattr(owner, "_dark_theme", False):
-            self.set_dark_theme(True)
+        if self._dark_theme:
+            self.window.add_css_class("mochi-dark-theme")
 
         # Keep this a native header-bar decoration. GTK reserves the remaining
         # header-bar area as the compositor-supported drag region on Wayland.
@@ -891,6 +941,7 @@ class EmoteCatalogueWindow:
         self._canvas = EmoteCatalogueCanvas(
             atlas=atlas,
             emotes=self._page_emotes(),
+            dark_theme=self._dark_theme,
         )
         self._canvas.set_margin_top(18)
         root.append(self._canvas)
@@ -939,6 +990,8 @@ class EmoteCatalogueWindow:
             self.window.add_css_class("mochi-dark-theme")
         else:
             self.window.remove_css_class("mochi-dark-theme")
+        if hasattr(self, "_canvas") and hasattr(self._canvas, "set_dark_theme"):
+            self._canvas.set_dark_theme(enabled)
 
     @property
     def page_count(self) -> int:

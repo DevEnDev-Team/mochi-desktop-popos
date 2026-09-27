@@ -155,6 +155,34 @@ button.mochi-quick-start-close {
 button.mochi-quick-start-close:hover {
     background-color: #8bd49b;
 }
+
+window.mochi-quick-start.mochi-dark-theme {
+    background-color: #1e1e24;
+    color: #f4f4f5;
+}
+
+window.mochi-quick-start.mochi-dark-theme .mochi-quick-start-title {
+    color: #f4f4f5;
+}
+
+window.mochi-quick-start.mochi-dark-theme .mochi-quick-start-card {
+    background-color: alpha(white, 0.05);
+    border: 1px solid alpha(white, 0.12);
+}
+
+window.mochi-quick-start.mochi-dark-theme .mochi-quick-start-section-title {
+    color: #f4f4f5;
+}
+
+window.mochi-quick-start.mochi-dark-theme .mochi-quick-start-subtitle,
+window.mochi-quick-start.mochi-dark-theme .mochi-quick-start-body,
+window.mochi-quick-start.mochi-dark-theme .mochi-quick-start-bullet {
+    color: alpha(#f4f4f5, 0.72);
+}
+
+window.mochi-quick-start.mochi-dark-theme .mochi-quick-start-footer {
+    color: alpha(#f4f4f5, 0.60);
+}
 """
 
 
@@ -169,8 +197,10 @@ class QuickStartWindow:
         *,
         owner: Gtk.Window,
         logger: logging.Logger | None = None,
+        dark_theme: bool = False,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
+        self._dark_theme = bool(dark_theme) or bool(getattr(owner, "_dark_theme", False))
 
         self.window = Gtk.Window()
         self.window.set_title("Getting to know Mochi 🌱")
@@ -182,6 +212,8 @@ class QuickStartWindow:
         self.window.set_default_size(self.DEFAULT_WIDTH, self.DEFAULT_HEIGHT)
         self.window.set_size_request(420, 420)
         self.window.add_css_class("mochi-quick-start")
+        if self._dark_theme:
+            self.window.add_css_class("mochi-dark-theme")
 
         self._css = Gtk.CssProvider()
         self._css.load_from_string(QUICK_START_CSS)
@@ -252,6 +284,13 @@ class QuickStartWindow:
         root.append(footer)
 
         self.window.set_child(root)
+
+    def set_dark_theme(self, enabled: bool) -> None:
+        self._dark_theme = bool(enabled)
+        if enabled:
+            self.window.add_css_class("mochi-dark-theme")
+        else:
+            self.window.remove_css_class("mochi-dark-theme")
 
     def present(self) -> None:
         """Present the same reusable window every time the menu action is used."""
@@ -361,7 +400,10 @@ class QuickStartMixin:
             self._quick_start_window = QuickStartWindow(
                 owner=self._window,
                 logger=self._logger,
+                dark_theme=getattr(self, "_dark_theme", False),
             )
+        else:
+            self._quick_start_window.set_dark_theme(getattr(self, "_dark_theme", False))
         self._quick_start_window.present()
 
     def shutdown_presence(self) -> None:

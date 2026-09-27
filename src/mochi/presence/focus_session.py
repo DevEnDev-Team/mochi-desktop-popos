@@ -161,6 +161,42 @@ button.mochi-focus-secondary-button {
     min-height: 38px;
     border-radius: 10px;
 }
+
+window.mochi-focus-window.mochi-dark-theme {
+    background-color: #1e1e24;
+    color: #f4f4f5;
+}
+
+window.mochi-focus-window.mochi-dark-theme .mochi-focus-title,
+window.mochi-focus-window.mochi-dark-theme .mochi-focus-timer {
+    color: #f4f4f5;
+}
+
+window.mochi-focus-window.mochi-dark-theme .mochi-focus-card {
+    background-color: alpha(white, 0.05);
+    border: 1px solid alpha(white, 0.12);
+}
+
+window.mochi-focus-window.mochi-dark-theme .mochi-focus-subtitle,
+window.mochi-focus-window.mochi-dark-theme .mochi-focus-secondary {
+    color: alpha(#f4f4f5, 0.70);
+}
+
+window.mochi-focus-window.mochi-dark-theme button.mochi-focus-secondary-button {
+    background-image: none;
+    background-color: alpha(white, 0.10);
+    color: #f4f4f5;
+    border: 1px solid alpha(white, 0.18);
+}
+
+window.mochi-focus-window.mochi-dark-theme button.mochi-focus-secondary-button:hover {
+    background-color: alpha(white, 0.16);
+    color: #ffffff;
+}
+
+window.mochi-focus-window.mochi-dark-theme button.mochi-focus-secondary-button:active {
+    background-color: alpha(white, 0.22);
+}
 """
 
 
@@ -184,6 +220,7 @@ class FocusWindow:
         rain_enabled: bool,
         rain_volume: float,
         logger: logging.Logger | None = None,
+        dark_theme: bool = False,
     ) -> None:
         self._on_start = on_start
         self._on_pause = on_pause
@@ -197,6 +234,7 @@ class FocusWindow:
         self._logger = logger or logging.getLogger(__name__)
         self._owner = owner
         self._position_serial = 0
+        self._dark_theme = bool(dark_theme) or bool(getattr(owner, "_dark_theme", False))
 
         application = owner.get_application()
         if application is not None:
@@ -213,6 +251,8 @@ class FocusWindow:
         self.window.set_default_size(self.DEFAULT_WIDTH, self.DEFAULT_HEIGHT)
         self.window.set_size_request(360, 330)
         self.window.add_css_class("mochi-focus-window")
+        if self._dark_theme:
+            self.window.add_css_class("mochi-dark-theme")
         self.window.connect("map", self._on_map)
         self.window.connect("close-request", self._on_close_request)
 
@@ -262,6 +302,13 @@ class FocusWindow:
         root.append(self._stack)
 
         self.window.set_child(root)
+
+    def set_dark_theme(self, enabled: bool) -> None:
+        self._dark_theme = bool(enabled)
+        if enabled:
+            self.window.add_css_class("mochi-dark-theme")
+        else:
+            self.window.remove_css_class("mochi-dark-theme")
 
     def _build_setup_page(self) -> Gtk.Widget:
         card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -686,7 +733,10 @@ class FocusSessionMixin:
                 rain_enabled=self._focus_ambience.selected_name == "mochi_rain",
                 rain_volume=self._focus_ambience.volume,
                 logger=self._logger,
+                dark_theme=getattr(self, "_dark_theme", False),
             )
+        else:
+            self._focus_window.set_dark_theme(getattr(self, "_dark_theme", False))
 
         session = self._focus_session
         if session is not None:

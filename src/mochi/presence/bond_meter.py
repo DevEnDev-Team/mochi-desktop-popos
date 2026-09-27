@@ -108,6 +108,7 @@ class BondMeterMixin:
                 logger=self._logger,
                 on_level_up_finished=self._on_bond_level_up_finished,
                 atlas=self.atlas,
+                dark_theme=getattr(self, "_dark_theme", False),
             )
 
     def _build_context_menu(self):

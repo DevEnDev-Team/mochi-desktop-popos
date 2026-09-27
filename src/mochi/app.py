@@ -252,8 +252,11 @@ class MochiApplication(Gtk.Application):
                 box-shadow: 0 12px 34px alpha(black, 0.55);
             }
 
-            window.mochi-menu-window.mochi-dark-theme .mochi-menu-title,
-            window.mochi-menu-window.mochi-dark-theme button.mochi-menu-row {
+            window.mochi-menu-window.mochi-dark-theme label {
+                color: #f4f4f5;
+            }
+
+            window.mochi-menu-window.mochi-dark-theme .mochi-menu-title {
                 color: #f4f4f5;
             }
 
@@ -261,15 +264,47 @@ class MochiApplication(Gtk.Application):
             window.mochi-menu-window.mochi-dark-theme .mochi-menu-hint,
             window.mochi-menu-window.mochi-dark-theme .mochi-menu-value,
             window.mochi-menu-window.mochi-dark-theme .mochi-menu-section {
-                color: alpha(#f4f4f5, 0.60);
+                color: alpha(#f4f4f5, 0.65);
             }
 
-            window.mochi-menu-window.mochi-dark-theme button.mochi-menu-row:hover {
-                background-color: alpha(white, 0.09);
+            window.mochi-menu-window.mochi-dark-theme button.mochi-menu-row {
+                background-image: none;
+                background-color: transparent;
+                color: #f4f4f5;
+                border: none;
+                box-shadow: none;
+                outline: none;
+            }
+
+            window.mochi-menu-window.mochi-dark-theme button.mochi-menu-row:hover,
+            window.mochi-menu-window.mochi-dark-theme button.mochi-menu-row:focus {
+                background-image: none;
+                background-color: alpha(white, 0.10);
+                color: #ffffff;
+                box-shadow: none;
+                outline: none;
             }
 
             window.mochi-menu-window.mochi-dark-theme button.mochi-menu-row:active {
-                background-color: alpha(white, 0.15);
+                background-image: none;
+                background-color: alpha(white, 0.16);
+                color: #ffffff;
+                box-shadow: none;
+                outline: none;
+            }
+
+            window.mochi-menu-window.mochi-dark-theme button.mochi-menu-row label,
+            window.mochi-menu-window.mochi-dark-theme button.mochi-menu-row image {
+                color: inherit;
+            }
+
+            window.mochi-menu-window.mochi-dark-theme button.mochi-menu-danger {
+                color: #f87171;
+            }
+
+            window.mochi-menu-window.mochi-dark-theme image,
+            window.mochi-menu-window.mochi-dark-theme .mochi-menu-icon {
+                color: #f4f4f5;
             }
 
             window.mochi-menu-window.mochi-dark-theme separator {
@@ -277,35 +312,105 @@ class MochiApplication(Gtk.Application):
             }
 
             window.mochi-menu-window.mochi-dark-theme switch {
-                background-color: alpha(white, 0.18);
-                border: 1px solid alpha(white, 0.22);
+                background-image: none;
+                background-color: alpha(white, 0.20);
+                border: 1px solid alpha(white, 0.24);
+                box-shadow: none;
             }
 
             window.mochi-menu-window.mochi-dark-theme switch:checked {
-                background-color: #79c98b;
-                border-color: #79c98b;
+                background-image: none;
+                background-color: #58a96c;
+                border-color: #58a96c;
             }
 
             window.mochi-menu-window.mochi-dark-theme switch slider {
-                background-color: #2b2b33;
-                border: 1px solid alpha(white, 0.22);
+                background-image: none;
+                background-color: #d1d1d6;
+                border: 1px solid alpha(black, 0.20);
+                box-shadow: 0 1px 2px alpha(black, 0.35);
             }
 
             window.mochi-menu-window.mochi-dark-theme switch:checked slider {
-                background-color: white;
-                border-color: alpha(black, 0.08);
+                background-image: none;
+                background-color: #ffffff;
+                border: 1px solid alpha(black, 0.15);
             }
 
-            window.mochi-menu-window.mochi-dark-theme .mochi-bond-card {
-                background-color: alpha(black, 0.35);
+            window.mochi-menu-window.mochi-dark-theme progressbar.mochi-bond-progress trough {
+                background-image: none;
+                background-color: alpha(white, 0.15);
+                border: none;
+            }
+
+            window.mochi-menu-window.mochi-dark-theme progressbar.mochi-bond-progress progress {
+                background-image: none;
+                background-color: #79c98b;
+                border: none;
+            }
+
+            window.mochi-menu-window.mochi-dark-theme scale trough {
+                background-image: none;
+                background-color: alpha(white, 0.15);
+                border: none;
+            }
+
+            window.mochi-menu-window.mochi-dark-theme scale highlight {
+                background-image: none;
+                background-color: #79c98b;
+                border: none;
+            }
+
+            window.mochi-menu-window.mochi-dark-theme scale slider {
+                background-image: none;
+                background-color: #f4f4f5;
+                border: 1px solid alpha(black, 0.20);
+                box-shadow: 0 1px 3px alpha(black, 0.35);
+            }
+
+            window.mochi-menu-window.mochi-dark-theme spinbutton {
+                background-image: none;
+                background-color: alpha(white, 0.08);
+                color: #f4f4f5;
+                border: 1px solid alpha(white, 0.18);
+                border-radius: 8px;
+            }
+
+            window.mochi-menu-window.mochi-dark-theme spinbutton text {
+                background-image: none;
+                background-color: transparent;
                 color: #f4f4f5;
             }
 
-            window.mochi-menu-window.mochi-dark-theme spinbutton,
+            window.mochi-menu-window.mochi-dark-theme spinbutton button {
+                background-image: none;
+                background-color: transparent;
+                color: #f4f4f5;
+                border: none;
+            }
+
+            window.mochi-menu-window.mochi-dark-theme spinbutton button:hover {
+                background-color: alpha(white, 0.12);
+            }
+
             window.mochi-menu-window.mochi-dark-theme dropdown > button {
-                background-color: alpha(white, 0.10);
+                background-image: none;
+                background-color: alpha(white, 0.08);
                 color: #f4f4f5;
-                border-color: alpha(white, 0.18);
+                border: 1px solid alpha(white, 0.18);
+                border-radius: 8px;
+                box-shadow: none;
+            }
+
+            window.mochi-menu-window.mochi-dark-theme dropdown > button:hover {
+                background-color: alpha(white, 0.14);
+            }
+
+            window.mochi-menu-window.mochi-dark-theme popover contents {
+                background-color: #24242c;
+                color: #f4f4f5;
+                border: 1px solid alpha(white, 0.16);
+                border-radius: 12px;
             }
 
             /* Dark theme overrides for speech bubbles */

@@ -192,49 +192,6 @@ class X11BuddyDragTests(unittest.TestCase):
             X11Buddy._sample_x11_drag(buddy, render=False)
         self.assertLess(motion.filtered_velocity_x, 0.0)
 
-    def test_drag_update_translates_window_from_origin_and_offsets(self) -> None:
-        from mochi.buddy import Buddy
-
-        class DummyBuddy(X11Buddy):
-            def __init__(self, **kwargs):
-                for k, v in kwargs.items():
-                    setattr(self, k, v)
-
-        placement = SimpleNamespace(move_to=Mock())
-        bubble = SimpleNamespace(visible=True, follow_owner_now=Mock())
-        buddy = DummyBuddy(
-            _drag_started=True,
-            _drag_origin=SimpleNamespace(x=200, y=300),
-            state=SimpleNamespace(current=MochiState.DRAGGED),
-            _placement=placement,
-            _presence_bubble=bubble,
-            _sample_x11_drag=Mock(),
-            _maybe_show_drag_speech=Mock(),
-        )
-
-        with patch.object(Buddy, "_on_drag_update"):
-            buddy._on_drag_update(Mock(), 15.4, -25.6)
-
-        placement.move_to.assert_called_once_with(215, 274)
-        buddy._sample_x11_drag.assert_called_once_with(render=True)
-        bubble.follow_owner_now.assert_called_once_with()
-
-    def test_tick_does_not_call_move_with_x11_pointer(self) -> None:
-        from mochi.buddy import Buddy
-
-        class DummyBuddy(X11Buddy):
-            def __init__(self, **kwargs):
-                for k, v in kwargs.items():
-                    setattr(self, k, v)
-
-        buddy = DummyBuddy(_move_with_x11_pointer=Mock())
-
-        with patch.object(Buddy, "_tick", return_value=True):
-            result = buddy._tick()
-
-        self.assertTrue(result)
-        buddy._move_with_x11_pointer.assert_not_called()
-
 
 if __name__ == "__main__":
     unittest.main()

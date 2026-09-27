@@ -33,17 +33,7 @@ class X11Buddy(Buddy):
         super()._on_drag_update(gesture, offset_x, offset_y)
         if not was_drag_started and self._drag_started:
             self._maybe_show_drag_speech()
-        if self._drag_started and getattr(self, "_drag_origin", None) is not None:
-            self._placement.move_to(
-                self._drag_origin.x + round(offset_x),
-                self._drag_origin.y + round(offset_y),
-            )
-            self._sample_x11_drag(render=True)
-            bubble = getattr(self, "_presence_bubble", None)
-            if bubble is not None and getattr(bubble, "visible", False):
-                follow_now = getattr(bubble, "follow_owner_now", None)
-                if callable(follow_now):
-                    follow_now()
+        self._move_with_x11_pointer()
 
     def _maybe_show_drag_speech(self) -> None:
         """Show the playful drag line through the ambient branch's bubble system.
@@ -121,6 +111,7 @@ class X11Buddy(Buddy):
         )
 
     def _tick(self) -> bool:
+        self._move_with_x11_pointer()
         return super()._tick()
 
     def _move_with_x11_pointer(self) -> None:

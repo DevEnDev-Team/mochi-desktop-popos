@@ -236,9 +236,14 @@ class SpeechBubble:
 
     def _reposition_after_text_change(self) -> None:
         if self._mode == "x11":
-            self._position_x11()
+            # Force GTK to recalculate the window's natural size before
+            # repositioning — without this the window keeps its old geometry
+            # when the text grows (e.g. after the typing preview is revealed),
+            # causing the bubble to appear clipped / incomplete.
+            self._window.queue_resize()
             GLib.idle_add(self._position_x11)
             GLib.timeout_add(24, self._position_x11)
+            GLib.timeout_add(50, self._position_x11)
         elif self._mode == "wayland":
             self._position_wayland_anchor()
 
@@ -454,10 +459,15 @@ class SpeechBubble:
         owner_height = max(1, self._owner.get_height())
         width = self._window.get_width()
         height = self._window.get_height()
-        if width <= 1:
-            width = 218
-        if height <= 1:
-            height = 46
+        if width <= 1 or height <= 1:
+            # Window not yet allocated — query the natural size from the
+            # content so we don't use stale hardcoded fallback dimensions that
+            # would cause clipping when text is longer than the default.
+            _min, natural = self._window.get_preferred_size()
+            if width <= 1:
+                width = max(218, natural.width) if natural.width > 1 else 218
+            if height <= 1:
+                height = max(46, natural.height) if natural.height > 1 else 46
 
         owner_scale = self._x11_coordinate_scale(self._owner)
         bubble_scale = self._x11_coordinate_scale(self._window)

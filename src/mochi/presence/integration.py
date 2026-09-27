@@ -124,7 +124,23 @@ class PresenceBuddyMixin:
             stay_row,
             after="sleep",
         )
+        if hasattr(self, "_show_emote_catalogue"):
+            emotes_button, _ = self._make_menu_button(
+                "Emotes",
+                "face-smile-symbolic",
+                self._open_emote_catalogue_from_menu,
+            )
+            self._register_context_menu_row(
+                "emotes",
+                emotes_button,
+                before="sleep",
+            )
         return popover
+
+    def _open_emote_catalogue_from_menu(self, _button) -> None:
+        show_catalogue = getattr(self, "_show_emote_catalogue", None)
+        if callable(show_catalogue):
+            self._close_context_menu_then(show_catalogue)
 
     def _make_stay_put_row(self) -> tuple[Gtk.Button, Gtk.Switch]:
         button = Gtk.Button()

@@ -195,6 +195,18 @@ class ContextMenuFeatureMigrationTests(unittest.TestCase):
             harness._show_focus_window
         )
 
+    def test_emotes_row_stays_before_sleep_and_defers_open_until_menu_close(self) -> None:
+        source = inspect.getsource(PresenceBuddyMixin._build_context_menu)
+        self.assertIn('"emotes"', source)
+        self.assertIn('before="sleep"', source)
+
+        harness = Mock()
+        PresenceBuddyMixin._open_emote_catalogue_from_menu(harness, Mock())
+
+        harness._close_context_menu_then.assert_called_once_with(
+            harness._show_emote_catalogue
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

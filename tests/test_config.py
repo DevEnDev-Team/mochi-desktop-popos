@@ -68,6 +68,15 @@ class ConfigStoreTests(unittest.TestCase):
             store.save_edge_roam(False)
             self.assertFalse(store.load_edge_roam())
 
+    def test_dark_theme_defaults_off_and_round_trips(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = ConfigStore(Path(directory) / "config.json")
+            self.assertFalse(store.load_dark_theme())
+            store.save_dark_theme(True)
+            self.assertTrue(store.load_dark_theme())
+            store.save_dark_theme(False)
+            self.assertFalse(store.load_dark_theme())
+
     def test_startup_marker_distinguishes_first_launch(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             store = ConfigStore(Path(directory) / "config.json")

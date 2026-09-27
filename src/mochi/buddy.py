@@ -135,6 +135,11 @@ class Buddy(Gtk.DrawingArea):
         self._config = config
         self._language = self._config.load_language()
         set_language(self._language)
+        self._dark_theme = (
+            self._config.load_dark_theme()
+            if hasattr(self._config, "load_dark_theme")
+            else False
+        )
         self._sound = sound
         self._on_click = on_click
         self._preview_mode = preview_mode
@@ -337,6 +342,12 @@ class Buddy(Gtk.DrawingArea):
 
     def _toggle_language(self, *args, **kwargs):
         return _menu_ui_for(self)._toggle_language(*args, **kwargs)
+
+    def _toggle_dark_theme(self, *args, **kwargs):
+        return _menu_ui_for(self)._toggle_dark_theme(*args, **kwargs)
+
+    def _make_dark_theme_row(self, *args, **kwargs):
+        return _menu_ui_for(self)._make_dark_theme_row(*args, **kwargs)
 
     def _rebuild_context_menu(self, *args, **kwargs):
         return _menu_ui_for(self)._rebuild_context_menu(*args, **kwargs)

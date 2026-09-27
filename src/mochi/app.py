@@ -243,6 +243,98 @@ class MochiApplication(Gtk.Application):
                 color: @theme_fg_color;
                 border-color: alpha(#79c98b, 0.44);
             }
+
+            /* Dark theme overrides for context / developer menu */
+            window.mochi-menu-window.mochi-dark-theme {
+                background-color: #1e1e24;
+                color: #f4f4f5;
+                border: 1px solid alpha(white, 0.12);
+                box-shadow: 0 12px 34px alpha(black, 0.55);
+            }
+
+            window.mochi-menu-window.mochi-dark-theme .mochi-menu-title,
+            window.mochi-menu-window.mochi-dark-theme button.mochi-menu-row {
+                color: #f4f4f5;
+            }
+
+            window.mochi-menu-window.mochi-dark-theme .mochi-menu-subtitle,
+            window.mochi-menu-window.mochi-dark-theme .mochi-menu-hint,
+            window.mochi-menu-window.mochi-dark-theme .mochi-menu-value,
+            window.mochi-menu-window.mochi-dark-theme .mochi-menu-section {
+                color: alpha(#f4f4f5, 0.60);
+            }
+
+            window.mochi-menu-window.mochi-dark-theme button.mochi-menu-row:hover {
+                background-color: alpha(white, 0.09);
+            }
+
+            window.mochi-menu-window.mochi-dark-theme button.mochi-menu-row:active {
+                background-color: alpha(white, 0.15);
+            }
+
+            window.mochi-menu-window.mochi-dark-theme separator {
+                background-color: alpha(white, 0.12);
+            }
+
+            window.mochi-menu-window.mochi-dark-theme switch {
+                background-color: alpha(white, 0.18);
+                border: 1px solid alpha(white, 0.22);
+            }
+
+            window.mochi-menu-window.mochi-dark-theme switch:checked {
+                background-color: #79c98b;
+                border-color: #79c98b;
+            }
+
+            window.mochi-menu-window.mochi-dark-theme switch slider {
+                background-color: #2b2b33;
+                border: 1px solid alpha(white, 0.22);
+            }
+
+            window.mochi-menu-window.mochi-dark-theme switch:checked slider {
+                background-color: white;
+                border-color: alpha(black, 0.08);
+            }
+
+            window.mochi-menu-window.mochi-dark-theme .mochi-bond-card {
+                background-color: alpha(black, 0.35);
+                color: #f4f4f5;
+            }
+
+            window.mochi-menu-window.mochi-dark-theme spinbutton,
+            window.mochi-menu-window.mochi-dark-theme dropdown > button {
+                background-color: alpha(white, 0.10);
+                color: #f4f4f5;
+                border-color: alpha(white, 0.18);
+            }
+
+            /* Dark theme overrides for speech bubbles */
+            window.mochi-speech-window.mochi-dark-theme .mochi-speech-bubble,
+            popover.mochi-speech-popover.mochi-dark-theme .mochi-speech-bubble,
+            .mochi-dark-theme .mochi-speech-bubble {
+                background-color: #1e1e24;
+                color: #f4f4f5;
+                border-color: alpha(#79c98b, 0.40);
+                box-shadow: 0 5px 18px alpha(black, 0.45);
+            }
+
+            window.mochi-speech-window.mochi-dark-theme .mochi-speech-text,
+            popover.mochi-speech-popover.mochi-dark-theme .mochi-speech-text,
+            .mochi-dark-theme .mochi-speech-text {
+                color: #f4f4f5;
+            }
+
+            window.mochi-speech-window.mochi-dark-theme .mochi-speech-text.mochi-speech-typing,
+            popover.mochi-speech-popover.mochi-dark-theme .mochi-speech-text.mochi-speech-typing,
+            .mochi-dark-theme .mochi-speech-text.mochi-speech-typing {
+                color: alpha(#f4f4f5, 0.65);
+            }
+
+            popover.mochi-speech-popover.mochi-dark-theme > arrow,
+            .mochi-dark-theme popover.mochi-speech-popover > arrow {
+                background-color: #1e1e24;
+                border-color: alpha(#79c98b, 0.40);
+            }
             """
         )
         Gtk.StyleContext.add_provider_for_display(

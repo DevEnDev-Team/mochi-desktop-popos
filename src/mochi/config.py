@@ -116,6 +116,20 @@ class ConfigStore:
         self._save(data)
         self._logger.debug("Edge roam: %s", bool(enabled))
 
+    def load_dark_theme(self) -> bool:
+        """Return whether dark theme is enabled for menu and speech bubbles."""
+        try:
+            dark_theme = self._load()["dark_theme"]
+        except (FileNotFoundError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return False
+        return dark_theme if isinstance(dark_theme, bool) else False
+
+    def save_dark_theme(self, enabled: bool) -> None:
+        data = self._load_or_empty()
+        data["dark_theme"] = bool(enabled)
+        self._save(data)
+        self._logger.debug("Dark theme: %s", bool(enabled))
+
     def load_language(self) -> str:
         """Return the persisted language code or detect from system locale."""
         from mochi.i18n import LANGUAGES, detect_system_language

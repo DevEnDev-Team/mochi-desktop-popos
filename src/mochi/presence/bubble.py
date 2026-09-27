@@ -54,11 +54,13 @@ class SpeechBubble:
         anchor_widget: Gtk.Widget,
         logger: logging.Logger | None = None,
         can_show: Callable[[], bool] | None = None,
+        dark_theme: bool = False,
     ) -> None:
         self._owner = owner
         self._anchor = anchor_widget
         self._logger = logger or logging.getLogger(__name__)
         self._can_show = can_show
+        self._dark_theme = False
         self._hide_source_id: int | None = None
         self._follow_source_id: int | None = None
         self._animation_source_id: int | None = None
@@ -99,7 +101,20 @@ class SpeechBubble:
         self._popover.add_css_class("mochi-speech-popover")
         self._popover.set_child(self._popover_box)
 
+        if dark_theme:
+            self.set_dark_theme(True)
+
         self._install_css(owner.get_display())
+
+    def set_dark_theme(self, enabled: bool) -> None:
+        """Toggle dark theme styling on speech bubble window and popover."""
+        self._dark_theme = bool(enabled)
+        if enabled:
+            self._window.add_css_class("mochi-dark-theme")
+            self._popover.add_css_class("mochi-dark-theme")
+        else:
+            self._window.remove_css_class("mochi-dark-theme")
+            self._popover.remove_css_class("mochi-dark-theme")
 
     @staticmethod
     def _make_label() -> Gtk.Label:
@@ -611,6 +626,29 @@ class SpeechBubble:
             popover.mochi-speech-popover > arrow {
                 background: alpha(@window_bg_color, 0.96);
                 border-color: alpha(#79c98b, 0.30);
+            }
+            window.mochi-speech-window.mochi-dark-theme .mochi-speech-bubble,
+            popover.mochi-speech-popover.mochi-dark-theme .mochi-speech-bubble,
+            .mochi-dark-theme .mochi-speech-bubble {
+                background: alpha(#1e1e24, 0.96);
+                color: #f4f4f5;
+                border: 1px solid alpha(#79c98b, 0.40);
+                box-shadow: 0 5px 18px alpha(black, 0.45);
+            }
+            window.mochi-speech-window.mochi-dark-theme .mochi-speech-text,
+            popover.mochi-speech-popover.mochi-dark-theme .mochi-speech-text,
+            .mochi-dark-theme .mochi-speech-text {
+                color: #f4f4f5;
+            }
+            window.mochi-speech-window.mochi-dark-theme .mochi-speech-text.mochi-speech-typing,
+            popover.mochi-speech-popover.mochi-dark-theme .mochi-speech-text.mochi-speech-typing,
+            .mochi-dark-theme .mochi-speech-text.mochi-speech-typing {
+                color: alpha(#f4f4f5, 0.65);
+            }
+            popover.mochi-speech-popover.mochi-dark-theme > arrow,
+            .mochi-dark-theme popover.mochi-speech-popover > arrow {
+                background: alpha(#1e1e24, 0.96);
+                border-color: alpha(#79c98b, 0.40);
             }
             """
         )

@@ -143,6 +143,24 @@ button.mochi-emote-page-button {
     color: alpha(@theme_fg_color, 0.48);
     font-size: 11px;
 }
+window.mochi-emote-catalogue.mochi-dark-theme {
+    background-color: #1e1e24;
+    color: #f4f4f5;
+}
+window.mochi-emote-catalogue.mochi-dark-theme .mochi-emote-header {
+    background-color: #1e1e24;
+    border-bottom: 1px solid alpha(white, 0.12);
+}
+window.mochi-emote-catalogue.mochi-dark-theme .mochi-emote-subtitle,
+window.mochi-emote-catalogue.mochi-dark-theme .mochi-emote-progress-copy {
+    color: alpha(#f4f4f5, 0.68);
+}
+window.mochi-emote-catalogue.mochi-dark-theme .mochi-emote-page-label {
+    color: alpha(#f4f4f5, 0.72);
+}
+window.mochi-emote-catalogue.mochi-dark-theme .mochi-emote-footer {
+    color: alpha(#f4f4f5, 0.48);
+}
 """
 
 
@@ -808,6 +826,8 @@ class EmoteCatalogueWindow:
         self.window.set_default_size(self.DEFAULT_WIDTH, self.DEFAULT_HEIGHT)
         self.window.set_size_request(880, 780)
         self.window.add_css_class("mochi-emote-catalogue")
+        if getattr(owner, "_dark_theme", False):
+            self.set_dark_theme(True)
 
         # Keep this a native header-bar decoration. GTK reserves the remaining
         # header-bar area as the compositor-supported drag region on Wayland.
@@ -911,6 +931,14 @@ class EmoteCatalogueWindow:
         root.append(footer)
 
         self.window.set_child(root)
+
+    def set_dark_theme(self, enabled: bool) -> None:
+        """Toggle dark theme appearance on the catalogue window."""
+        self._dark_theme = bool(enabled)
+        if enabled:
+            self.window.add_css_class("mochi-dark-theme")
+        else:
+            self.window.remove_css_class("mochi-dark-theme")
 
     @property
     def page_count(self) -> int:

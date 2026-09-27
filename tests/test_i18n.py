@@ -51,6 +51,7 @@ class I18nTests(unittest.TestCase):
         self.assertEqual(tr("menu.sleep"), "Sleep")
         self.assertEqual(tr("menu.feed"), "Feed")
         self.assertEqual(tr("menu.close"), "Close")
+        self.assertEqual(tr("menu.dark_theme"), "Dark theme")
         self.assertEqual(tr("menu.bond_level", level=2), "Bond Lv. 2")
         self.assertEqual(tr("dialogue.wheee"), "wheee!")
 
@@ -61,6 +62,7 @@ class I18nTests(unittest.TestCase):
         self.assertEqual(tr("menu.close"), "Fermer")
         self.assertEqual(tr("menu.emotes"), "Émotes")
         self.assertEqual(tr("menu.stay_put"), "Ne pas bouger")
+        self.assertEqual(tr("menu.dark_theme"), "Thème sombre")
         self.assertEqual(tr("menu.bond_level", level=3), "Lien Niv. 3")
         self.assertEqual(tr("dialogue.wheee"), "ouiii !")
 

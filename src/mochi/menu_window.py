@@ -128,6 +128,7 @@ class MenuWindow:
         follow_owner: bool = False,
         dismiss_on_focus_loss: bool = False,
         logger: logging.Logger | None = None,
+        dark_theme: bool = False,
     ) -> None:
         self._owner = owner
         self._preferred_width = preferred_width
@@ -143,6 +144,7 @@ class MenuWindow:
         self._position_serial = 0
         self._follow_source_id: int | None = None
         self._drag_handle: Gtk.Widget | None = None
+        self._dark_theme = False
 
         self.window = Gtk.Window()
         self.window.set_decorated(False)
@@ -152,6 +154,8 @@ class MenuWindow:
         self.window.set_transient_for(owner)
         self.window.set_default_size(preferred_width, preferred_height)
         self.window.add_css_class("mochi-menu-window")
+        if dark_theme:
+            self.set_dark_theme(True)
         self.window.connect("map", self._on_map)
         self.window.connect("close-request", self._on_close_request)
         self.window.connect("notify::is-active", self._on_active_changed)
@@ -162,6 +166,17 @@ class MenuWindow:
 
     def add_css_class(self, css_class: str) -> None:
         self.window.add_css_class(css_class)
+
+    def remove_css_class(self, css_class: str) -> None:
+        self.window.remove_css_class(css_class)
+
+    def set_dark_theme(self, enabled: bool) -> None:
+        """Toggle dark theme appearance on the menu window."""
+        self._dark_theme = bool(enabled)
+        if enabled:
+            self.window.add_css_class("mochi-dark-theme")
+        else:
+            self.window.remove_css_class("mochi-dark-theme")
 
     def set_child(self, child: Gtk.Widget) -> None:
         self.window.set_child(child)

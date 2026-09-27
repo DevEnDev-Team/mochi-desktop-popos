@@ -122,6 +122,7 @@ class BuddyMenuController:
 
     def _build_context_menu(self) -> MenuWindow:
         """Build Mochi's intentionally tiny user-facing right-click menu."""
+        dark_theme = getattr(self._buddy, "_dark_theme", False)
         popover = MenuWindow(
             owner=self._buddy._window,
             anchor_widget=self._buddy,
@@ -130,6 +131,7 @@ class BuddyMenuController:
             follow_owner=True,
             dismiss_on_focus_loss=True,
             logger=self._buddy._logger,
+            dark_theme=dark_theme,
         )
         popover.add_css_class("mochi-user-menu")
 
@@ -191,11 +193,21 @@ class BuddyMenuController:
             before="close",
         )
 
+        self._buddy._dark_theme_button, self._buddy._dark_theme_switch = (
+            self._make_dark_theme_row()
+        )
+        self._buddy._register_context_menu_row(
+            "dark-theme",
+            self._buddy._dark_theme_button,
+            before="close",
+        )
+
         popover.set_child(card)
         return popover
 
     def _build_developer_menu(self) -> MenuWindow:
         """Developer-only controls opened by Mochi's private global shortcut."""
+        dark_theme = getattr(self._buddy, "_dark_theme", False)
         popover = MenuWindow(
             owner=self._buddy._window,
             anchor_widget=self._buddy,
@@ -203,6 +215,7 @@ class BuddyMenuController:
             preferred_height=680,
             follow_owner=False,
             logger=self._buddy._logger,
+            dark_theme=dark_theme,
         )
         popover.add_css_class("mochi-dev-menu")
 
@@ -601,6 +614,58 @@ class BuddyMenuController:
         self._buddy._config.save_language(new_lang)
         self._buddy._logger.info("Language switched to %s", new_lang)
         self._rebuild_context_menu()
+
+    def _make_dark_theme_row(self) -> tuple[Gtk.Button, Gtk.Switch]:
+        button = Gtk.Button()
+        button.add_css_class("mochi-menu-row")
+        button.set_tooltip_text(tr("menu.dark_theme_tooltip"))
+
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        icon = Gtk.Image.new_from_icon_name("night-light-symbolic")
+        icon.add_css_class("mochi-menu-icon")
+        row.append(icon)
+
+        text = Gtk.Label(label=tr("menu.dark_theme"))
+        text.set_xalign(0)
+        text.set_hexpand(True)
+        row.append(text)
+
+        switch = Gtk.Switch()
+        switch.set_valign(Gtk.Align.CENTER)
+        switch.set_active(getattr(self._buddy, "_dark_theme", False))
+        switch.set_can_target(False)
+        switch.set_focusable(False)
+        row.append(switch)
+
+        button.set_child(row)
+        button.connect("clicked", self._toggle_dark_theme)
+        return button, switch
+
+    def _toggle_dark_theme(self, _button: Gtk.Button | None = None) -> None:
+        self._buddy._dark_theme = not getattr(self._buddy, "_dark_theme", False)
+        if hasattr(self._buddy, "_config") and hasattr(self._buddy._config, "save_dark_theme"):
+            self._buddy._config.save_dark_theme(self._buddy._dark_theme)
+        if getattr(self._buddy, "_dark_theme_switch", None) is not None:
+            self._buddy._dark_theme_switch.set_active(self._buddy._dark_theme)
+        self._apply_dark_theme(self._buddy._dark_theme)
+        self._buddy._logger.info(
+            "Dark theme %s", "enabled" if self._buddy._dark_theme else "disabled"
+        )
+
+    def _apply_dark_theme(self, enabled: bool) -> None:
+        context_menu = getattr(self._buddy, "_context_menu", None)
+        if context_menu is not None and hasattr(context_menu, "set_dark_theme"):
+            context_menu.set_dark_theme(enabled)
+        dev_menu = getattr(self._buddy, "_developer_menu", None)
+        if dev_menu is not None and hasattr(dev_menu, "set_dark_theme"):
+            dev_menu.set_dark_theme(enabled)
+        bubble = getattr(self._buddy, "_presence_bubble", None)
+        if bubble is not None and hasattr(bubble, "set_dark_theme"):
+            bubble.set_dark_theme(enabled)
+        emote_window = getattr(self._buddy, "_emote_catalogue_window", None)
+        if emote_window is not None and hasattr(emote_window, "set_dark_theme"):
+            emote_window.set_dark_theme(enabled)
+
 
     def _rebuild_context_menu(self) -> None:
         was_visible = bool(

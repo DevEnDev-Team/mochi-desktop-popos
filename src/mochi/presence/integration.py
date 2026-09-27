@@ -75,6 +75,7 @@ class PresenceBuddyMixin:
             anchor_widget=self,
             logger=self._logger,
             can_show=lambda: self.state.dialogue_allowed,
+            dark_theme=getattr(self, "_dark_theme", False),
         )
         self._session_signal_monitor = SessionSignalMonitor(
             on_away=self._on_presence_session_away,

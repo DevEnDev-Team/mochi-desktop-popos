@@ -576,3 +576,85 @@ def test_catalogue_keeps_static_preview_cache_separate_from_card_chrome() -> Non
     assert "self._render_preview_surface(emote, scale)" in render_source
     assert "self._preview_surfaces" in draw_source
     assert "self._hover_preview_frame_index" in draw_source
+
+
+def test_canvas_set_assignments_invalidates_surfaces_and_queues_draw() -> None:
+    canvas = EmoteCatalogueCanvas.__new__(EmoteCatalogueCanvas)
+    canvas._assignments = {}
+    canvas._card_surfaces = ["dummy"]
+    canvas.queue_draw = Mock()
+
+    EmoteCatalogueCanvas.set_assignments(canvas, {"heart": {"random": True, "program": "code"}})
+
+    assert canvas._assignments == {"heart": {"random": True, "program": "code"}}
+    assert canvas._card_surfaces == []
+    canvas.queue_draw.assert_called_once_with()
+
+
+def test_canvas_card_at_coords_hit_detection() -> None:
+    canvas = EmoteCatalogueCanvas.__new__(EmoteCatalogueCanvas)
+    coffee = EMOTES_BY_ID["coffee"]
+    canvas._emotes = (coffee,)
+
+    # Inside card 0 bounds
+    origin_x, origin_y = EmoteCatalogueCanvas._card_origin(0)
+    result = EmoteCatalogueCanvas.card_at_coords(canvas, origin_x + 10, origin_y + 10)
+    assert result is not None
+    emote, rect = result
+    assert emote == coffee
+    assert rect.x == int(origin_x)
+    assert rect.y == int(origin_y)
+
+    # Outside bounds
+    outside = EmoteCatalogueCanvas.card_at_coords(canvas, -50, -50)
+    assert outside is None
+
+
+def test_window_set_assignments_updates_canvas() -> None:
+    window = object.__new__(EmoteCatalogueWindow)
+    mock_canvas = SimpleNamespace(set_assignments=Mock())
+    window._canvas = mock_canvas
+
+    new_assignments = {"squish": {"random": False, "program": "blender"}}
+    window.set_assignments(new_assignments)
+
+    assert window._assignments == new_assignments
+    mock_canvas.set_assignments.assert_called_once_with(new_assignments)
+
+
+def test_canvas_set_assignments_with_state_renders_immediately() -> None:
+    canvas = EmoteCatalogueCanvas.__new__(EmoteCatalogueCanvas)
+    canvas._assignments = {}
+    canvas._state = BondState(level=1, xp=0)
+    canvas._render_card_surfaces = Mock()
+
+    EmoteCatalogueCanvas.set_assignments(canvas, {"squish": {"random": True, "program": ""}})
+
+    assert canvas._assignments == {"squish": {"random": True, "program": ""}}
+    canvas._render_card_surfaces.assert_called_once_with()
+
+
+def test_canvas_draw_renders_surfaces_on_demand_when_empty() -> None:
+    canvas = EmoteCatalogueCanvas.__new__(EmoteCatalogueCanvas)
+    canvas._card_surfaces = []
+    canvas._preview_surfaces = []
+    canvas._emotes = (EMOTES_BY_ID["coffee"],)
+    canvas._state = BondState(level=1, xp=0)
+    canvas._hover_progress = [0.0]
+    canvas._hovered_index = None
+    canvas._hover_preview_emote_id = None
+    canvas._draw_rarity_glow = Mock()
+    canvas._draw_hover_outline = Mock()
+    canvas._render_card_surfaces = Mock(
+        side_effect=lambda: (
+            setattr(canvas, "_card_surfaces", [Mock()]),
+            setattr(canvas, "_preview_surfaces", [Mock()]),
+        )
+    )
+
+    mock_ctx = Mock()
+    EmoteCatalogueCanvas._draw(canvas, None, mock_ctx, 100, 100)
+
+    canvas._render_card_surfaces.assert_called_once_with()
+
+

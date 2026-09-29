@@ -24,9 +24,20 @@ class ConfigStore:
     SIZE_STEP = 16
     DEFAULT_VOLUME = 0.6
 
-    def __init__(self, path: Path | None = None) -> None:
+    def __init__(
+        self,
+        path: Path | None = None,
+        autostart_path: Path | None = None,
+    ) -> None:
         config_home = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
         self.path = path or config_home / "mochi" / "config.json"
+        if autostart_path is not None:
+            self.autostart_path = autostart_path
+        elif path is not None:
+            self.autostart_path = path.parent / "autostart" / "io.github.mochi_desktop.Mochi.desktop"
+        else:
+            from mochi.autostart import get_autostart_file_path
+            self.autostart_path = get_autostart_file_path(config_home)
         self._logger = logging.getLogger(__name__)
 
     def load_position(self) -> Position | None:
@@ -129,6 +140,20 @@ class ConfigStore:
         data["dark_theme"] = bool(enabled)
         self._save(data)
         self._logger.debug("Dark theme: %s", bool(enabled))
+
+    def load_autostart(self) -> bool:
+        """Return whether autostart at login is enabled."""
+        from mochi.autostart import is_autostart_enabled
+        return is_autostart_enabled(self.autostart_path)
+
+    def save_autostart(self, enabled: bool) -> None:
+        """Persist autostart preference and update the desktop autostart entry."""
+        from mochi.autostart import set_autostart_enabled
+        set_autostart_enabled(enabled, path=self.autostart_path)
+        data = self._load_or_empty()
+        data["autostart"] = bool(enabled)
+        self._save(data)
+        self._logger.debug("Autostart: %s", bool(enabled))
 
     def load_language(self) -> str:
         """Return the persisted language code or detect from system locale."""
@@ -240,6 +265,53 @@ class ConfigStore:
             normalized.level,
             normalized.xp,
             normalized.xp_required,
+        )
+
+    def load_emote_assignments(self) -> dict[str, dict[str, object]]:
+        """Return user-configured emote assignments and idle cycling preferences."""
+        try:
+            raw = self._load().get("emote_assignments")
+            if isinstance(raw, dict):
+                result: dict[str, dict[str, object]] = {}
+                for emote_id, entry in raw.items():
+                    if isinstance(entry, dict):
+                        result[str(emote_id)] = {
+                            "random": bool(entry.get("random", True)),
+                            "program": str(entry.get("program", "")).strip(),
+                        }
+                return result
+        except (FileNotFoundError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            pass
+        return {}
+
+    def get_emote_assignment(self, emote_id: str) -> dict[str, object]:
+        """Return the configuration for a specific emote (default: random=True, program='')."""
+        assignments = self.load_emote_assignments()
+        return assignments.get(emote_id, {"random": True, "program": ""})
+
+    def save_emote_assignment(
+        self,
+        emote_id: str,
+        *,
+        random: bool = True,
+        program: str = "",
+    ) -> None:
+        """Persist assignment and random cycling preference for an emote."""
+        data = self._load_or_empty()
+        assignments = data.get("emote_assignments")
+        if not isinstance(assignments, dict):
+            assignments = {}
+        assignments[str(emote_id)] = {
+            "random": bool(random),
+            "program": str(program).strip(),
+        }
+        data["emote_assignments"] = assignments
+        self._save(data)
+        self._logger.debug(
+            "Emote %s assignment saved: random=%s, program=%r",
+            emote_id,
+            random,
+            program,
         )
 
     def has_started_before(self) -> bool:

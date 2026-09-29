@@ -86,3 +86,24 @@ def test_dance_emote_excluded_unless_music_playing() -> None:
     emotes_with_music = BondMeterMixin._available_catalogue_emote_animations(buddy)
     assert "dance" in emotes_with_music
 
+
+def test_emote_excluded_from_autonomous_pool_when_not_random() -> None:
+    from types import SimpleNamespace
+    from mochi.care import BondState
+
+    buddy = SimpleNamespace(
+        _bond_state=BondState(level=6),
+        _dev_unlock_all_emotes=False,
+        _music_monitor=None,
+        _config=SimpleNamespace(
+            load_emote_assignments=lambda: {
+                "heart": {"random": False, "program": ""},
+                "vs-code": {"random": False, "program": "code"},
+            }
+        ),
+    )
+    emotes = BondMeterMixin._available_catalogue_emote_animations(buddy)
+    assert "heart" not in emotes
+    assert "vs_code" not in emotes
+    assert "wave" in emotes
+

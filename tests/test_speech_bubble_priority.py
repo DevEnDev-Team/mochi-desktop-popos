@@ -59,3 +59,12 @@ def test_raise_window_returns_false_for_non_x11_surface() -> None:
     window.get_surface.return_value = Mock()  # not GdkX11.X11Surface
     assert raise_window(window) is False
 
+
+def test_move_resize_window_returns_false_for_non_x11_surface() -> None:
+    from mochi.x11 import move_resize_window
+
+    window = Mock()
+    window.get_surface.return_value = Mock()
+    assert move_resize_window(window, 10, 20, 200, 50) is False
+
+

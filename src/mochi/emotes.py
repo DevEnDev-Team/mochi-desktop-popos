@@ -75,6 +75,11 @@ EMOTE_CATALOGUE = (
     ),
 )
 EMOTES_BY_ID = {emote.id: emote for emote in EMOTE_CATALOGUE}
+EMOTE_ID_BY_ANIMATION = {
+    emote.animation: emote.id
+    for emote in EMOTE_CATALOGUE
+    if emote.animation is not None
+}
 
 
 def next_emote_unlock(state: BondState) -> EmoteDefinition | None:

@@ -7,6 +7,7 @@ import time
 from gi.repository import GLib, Gtk
 
 from mochi.buddy import Buddy
+from mochi.emotes import EMOTE_CATALOGUE, EmoteDefinition
 from mochi.sprites import ANIMATIONS
 from mochi.state import MochiState
 from mochi.i18n import tr
@@ -16,6 +17,7 @@ from .bubble import SpeechBubble
 from .context import AmbientContext
 from .engine import PresenceEngine, PresenceTuning, SpeechText, speech_display_seconds
 from .phrases import INTRO_MARKUP
+from .program_focus import ProgramFocusMonitor, matches_program
 from .signals import AppCategorySignalAdapter, SystemSignalMonitor
 from .session import SessionSignalMonitor
 
@@ -52,6 +54,9 @@ class PresenceBuddyMixin:
         self._presence_is_returning_session = False
         self._vscode_cowork_source_id: int | None = None
         self._vscode_coworking_active = False
+        self._program_focus_monitor: ProgramFocusMonitor | None = None
+        self._active_program_emote: str | None = None
+        self._current_program_identifiers: list[str] = []
         super().__init__(*args, **kwargs)
 
         if hasattr(self, "_config") and hasattr(self._config, "load_stay_put"):
@@ -103,6 +108,11 @@ class PresenceBuddyMixin:
                 "Ambient app-category awareness unavailable: %s",
                 self._app_category_monitor.last_error,
             )
+        self._program_focus_monitor = ProgramFocusMonitor(
+            on_program_focused=self._on_program_focused,
+            logger=self._logger,
+        )
+        self._program_focus_monitor.start()
         self._logger.debug("[session] startup baselines initialized")
         self._schedule_startup_wave()
         self._presence_source_id = GLib.timeout_add_seconds(
@@ -233,9 +243,28 @@ class PresenceBuddyMixin:
         self._try_start_pending_walk()
 
     def _maybe_resume_ambient_activity(self) -> bool:
+        if self._maybe_resume_program_focus_emote():
+            return True
         if self._try_start_pending_walk():
             return True
         return super()._maybe_resume_ambient_activity()
+
+    def _maybe_resume_program_focus_emote(self) -> bool:
+        if (
+            getattr(self, "_presence_shutting_down", False)
+            or getattr(self, "_preview_mode", False)
+            or not getattr(self, "_active_program_emote", None)
+            or getattr(self, "state", None) is None
+            or self.state.current is not MochiState.IDLE
+            or getattr(self, "_context_menu_open", False)
+        ):
+            return False
+        if hasattr(self, "_play_autonomous_catalogue_emote"):
+            return self._play_autonomous_catalogue_emote(
+                self._active_program_emote,
+                looping=True,
+            )
+        return False
 
     def _choose_idle_action(self) -> bool:
         """Keep catalogue emotes active while Stay put suppresses only walking."""
@@ -743,12 +772,85 @@ class PresenceBuddyMixin:
         previous = self._presence_app_category
         self._presence_app_category = category
         self._logger.debug("[presence] context app=%s -> %s", previous, category)
+        if getattr(self, "_program_focus_monitor", None) is not None:
+            self._program_focus_monitor.notify_app_category(category)
         if category != previous and category in ("terminal", "vscode"):
             self._on_user_active()
         if category == "vscode":
             self._schedule_vscode_coworking()
         elif previous == "vscode" or self._vscode_coworking_active:
             self._stop_vscode_coworking()
+
+    def _on_program_focused(self, identifiers: list[str]) -> None:
+        """Handle active window/program change and loop any assigned emote."""
+        self._current_program_identifiers = list(identifiers)
+        if (
+            getattr(self, "_presence_shutting_down", False)
+            or getattr(self, "_drag_started", False)
+            or getattr(self, "state", None) is None
+            or self.state.current is MochiState.SLEEPING
+        ):
+            return
+
+        config = getattr(self, "_config", None)
+        assignments = (
+            config.load_emote_assignments()
+            if config is not None and hasattr(config, "load_emote_assignments")
+            else {}
+        )
+        bond_state = getattr(self, "_bond_state", None)
+
+        matching_emotes: list[EmoteDefinition] = []
+        if bond_state is not None and assignments and identifiers:
+            for emote in EMOTE_CATALOGUE:
+                if not emote.is_unlocked(
+                    bond_state,
+                    unlock_all=getattr(self, "_dev_unlock_all_emotes", False),
+                ):
+                    continue
+                setting = assignments.get(emote.id)
+                if not setting:
+                    continue
+                target_program = str(setting.get("program", "")).strip()
+                if not target_program:
+                    continue
+                if matches_program(target_program, identifiers):
+                    matching_emotes.append(emote)
+
+        if not matching_emotes:
+            if getattr(self, "_active_program_emote", None) is not None:
+                self._active_program_emote = None
+                if (
+                    getattr(self, "state", None) is not None
+                    and self.state.current is MochiState.IDLE_EMOTE
+                ):
+                    if self._transition_to(MochiState.IDLE):
+                        self._play_animation("idle")
+            return
+
+        chosen = matching_emotes[0]
+        for e in matching_emotes:
+            if getattr(self, "_active_program_emote", None) == e.animation:
+                chosen = e
+                break
+
+        if (
+            getattr(self, "_active_program_emote", None) == chosen.animation
+            and getattr(self, "state", None) is not None
+            and self.state.current is MochiState.IDLE_EMOTE
+        ):
+            return
+
+        self._active_program_emote = chosen.animation
+        target_prog = str(assignments[chosen.id].get("program", "")).strip()
+        self._logger.info(
+            "Program focus (%s) looping emote '%s' (%s)",
+            target_prog,
+            chosen.id,
+            chosen.animation,
+        )
+        if chosen.animation and hasattr(self, "_play_autonomous_catalogue_emote"):
+            self._play_autonomous_catalogue_emote(chosen.animation, looping=True)
 
     def _cancel_vscode_cowork_source(self) -> None:
         source_id = self._vscode_cowork_source_id
@@ -951,6 +1053,9 @@ class PresenceBuddyMixin:
             self._session_signal_monitor.stop()
         if self._app_category_monitor is not None:
             self._app_category_monitor.stop()
+        if getattr(self, "_program_focus_monitor", None) is not None:
+            self._program_focus_monitor.stop()
+            self._program_focus_monitor = None
         if self._presence_bubble is not None:
             self._presence_bubble.hide()
 

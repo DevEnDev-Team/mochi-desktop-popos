@@ -13,6 +13,7 @@ DESKTOP_FILE="$DATA_HOME/applications/$APP_ID.desktop"
 ICON_FILE="$DATA_HOME/icons/hicolor/256x256/apps/$APP_ID.png"
 EXTENSION_DIR="$DATA_HOME/gnome-shell/extensions/$EXTENSION_UUID"
 AUTOSTART_FILE="$CONFIG_HOME/autostart/mochi-enable-gnome-helper-once.desktop"
+APP_AUTOSTART_FILE="$CONFIG_HOME/autostart/$APP_ID.desktop"
 PURGE=false
 
 if [[ "${1:-}" == "--purge" ]]; then
@@ -34,7 +35,7 @@ if command -v gnome-extensions >/dev/null 2>&1; then
     gnome-extensions disable "$EXTENSION_UUID" >/dev/null 2>&1 || true
 fi
 
-rm -f "$LAUNCHER" "$UPDATE_LAUNCHER" "$UNINSTALL_LAUNCHER" "$DESKTOP_FILE" "$ICON_FILE" "$AUTOSTART_FILE"
+rm -f "$LAUNCHER" "$UPDATE_LAUNCHER" "$UNINSTALL_LAUNCHER" "$DESKTOP_FILE" "$ICON_FILE" "$AUTOSTART_FILE" "$APP_AUTOSTART_FILE"
 rm -rf "$EXTENSION_DIR"
 
 if $PURGE; then

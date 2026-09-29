@@ -31,8 +31,11 @@ class X11Buddy(Buddy):
         self, gesture, offset_x: float, offset_y: float
     ) -> None:
         was_drag_started = self._drag_started
+        had_visible_bubble = bool(
+            getattr(getattr(self, "_presence_bubble", None), "visible", False)
+        )
         super()._on_drag_update(gesture, offset_x, offset_y)
-        if not was_drag_started and self._drag_started:
+        if not was_drag_started and self._drag_started and not had_visible_bubble:
             self._maybe_show_drag_speech()
         self._move_with_x11_pointer()
 

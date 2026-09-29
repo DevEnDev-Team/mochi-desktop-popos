@@ -16,6 +16,7 @@ from gi.repository import Gdk, GLib, Gtk, Pango  # noqa: E402
 
 from mochi.x11 import (
     get_window_position,
+    move_resize_window,
     move_window,
     raise_window,
     request_keep_above,
@@ -136,7 +137,7 @@ class SpeechBubble:
         shell = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         shell.add_css_class("mochi-speech-shell")
         shell.set_margin_top(7)
-        shell.set_margin_bottom(7)
+        shell.set_margin_bottom(10)
         shell.set_margin_start(7)
         shell.set_margin_end(7)
         shell.set_focusable(False)
@@ -348,6 +349,7 @@ class SpeechBubble:
 
     def _finish_hide(self) -> None:
         self._last_x11_pos = None
+        self._last_x11_size = None
         if self._window.get_visible():
             self._window.hide()
         if self._popover.get_visible():
@@ -478,13 +480,13 @@ class SpeechBubble:
         owner_x, owner_y = owner_position
         owner_width = max(1, self._owner.get_width())
         owner_height = max(1, self._owner.get_height())
-        _min, natural = self._window.get_preferred_size()
-        width = max(self._window.get_width(), natural.width)
-        height = max(self._window.get_height(), natural.height)
-        if width <= 1:
-            width = max(218, natural.width) if natural.width > 1 else 218
-        if height <= 1:
-            height = max(46, natural.height) if natural.height > 1 else 46
+        _min_w, nat_w, _, _ = self._bubble_box.measure(Gtk.Orientation.HORIZONTAL, -1)
+        req_w = max(nat_w, self._window.get_width())
+        width = max(req_w, 218) if req_w > 1 else 218
+        _min_h, nat_h, _, _ = self._bubble_box.measure(Gtk.Orientation.VERTICAL, width)
+        req_h = max(nat_h, self._window.get_height())
+        height = max(req_h, 46) if req_h > 1 else 46
+        self._window.set_default_size(width, height)
 
         owner_scale = self._x11_coordinate_scale(self._owner)
         bubble_scale = self._x11_coordinate_scale(self._window)
@@ -555,9 +557,21 @@ class SpeechBubble:
         y = y_above if y_above >= top else y_below
         x = max(round(left), min(x, max(round(left), round(right - bubble_width))))
         y = max(round(top), min(y, max(round(top), round(bottom - bubble_height))))
-        if getattr(self, "_last_x11_pos", None) != (x, y):
-            self._last_x11_pos = (x, y)
-            move_window(self._window, x, y)
+        current_pos = (x, y)
+        current_size = (round(bubble_width), round(bubble_height))
+        if (
+            getattr(self, "_last_x11_pos", None) != current_pos
+            or getattr(self, "_last_x11_size", None) != current_size
+        ):
+            self._last_x11_pos = current_pos
+            self._last_x11_size = current_size
+            move_resize_window(
+                self._window,
+                x,
+                y,
+                round(bubble_width),
+                round(bubble_height),
+            )
             raise_window(self._window)
         return GLib.SOURCE_REMOVE
 
@@ -598,9 +612,9 @@ class SpeechBubble:
                 background: alpha(@window_bg_color, 0.96);
                 color: @window_fg_color;
                 border: 1px solid alpha(#79c98b, 0.30);
-                border-radius: 999px;
+                border-radius: 16px;
                 box-shadow: 0 5px 16px alpha(black, 0.14);
-                padding: 8px 12px 8px 10px;
+                padding: 8px 14px 10px 12px;
             }
             .mochi-speech-dot {
                 background: #79c98b;

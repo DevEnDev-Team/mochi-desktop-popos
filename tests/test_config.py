@@ -168,6 +168,37 @@ class ConfigStoreTests(unittest.TestCase):
             store.save_language("invalid_lang")
             self.assertEqual(store.load_language(), "en")
 
+    def test_emote_assignments_round_trip(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            store = ConfigStore(path)
+
+            self.assertEqual(store.load_emote_assignments(), {})
+            self.assertEqual(
+                store.get_emote_assignment("vs-code"),
+                {"random": True, "program": ""},
+            )
+
+            store.save_emote_assignment("vs-code", random=False, program="code")
+            store.save_emote_assignment("coffee", random=True, program="firefox")
+
+            self.assertEqual(
+                store.get_emote_assignment("vs-code"),
+                {"random": False, "program": "code"},
+            )
+            self.assertEqual(
+                store.get_emote_assignment("coffee"),
+                {"random": True, "program": "firefox"},
+            )
+            self.assertEqual(
+                store.load_emote_assignments(),
+                {
+                    "vs-code": {"random": False, "program": "code"},
+                    "coffee": {"random": True, "program": "firefox"},
+                },
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -202,6 +202,15 @@ class BuddyMenuController:
             before="close",
         )
 
+        self._buddy._autostart_button, self._buddy._autostart_switch = (
+            self._make_autostart_row()
+        )
+        self._buddy._register_context_menu_row(
+            "autostart",
+            self._buddy._autostart_button,
+            before="close",
+        )
+
         popover.set_child(card)
         return popover
 
@@ -650,6 +659,47 @@ class BuddyMenuController:
         self._apply_dark_theme(self._buddy._dark_theme)
         self._buddy._logger.info(
             "Dark theme %s", "enabled" if self._buddy._dark_theme else "disabled"
+        )
+
+    def _make_autostart_row(self) -> tuple[Gtk.Button, Gtk.Switch]:
+        button = Gtk.Button()
+        button.add_css_class("mochi-menu-row")
+        button.set_tooltip_text(tr("menu.autostart_tooltip"))
+
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        icon = Gtk.Image.new_from_icon_name("system-run-symbolic")
+        icon.add_css_class("mochi-menu-icon")
+        row.append(icon)
+
+        text = Gtk.Label(label=tr("menu.autostart"))
+        text.set_xalign(0)
+        text.set_hexpand(True)
+        row.append(text)
+
+        switch = Gtk.Switch()
+        switch.set_valign(Gtk.Align.CENTER)
+        switch.set_active(getattr(self._buddy, "_autostart_enabled", False))
+        switch.set_can_target(False)
+        switch.set_focusable(False)
+        row.append(switch)
+
+        button.set_child(row)
+        button.connect("clicked", self._toggle_autostart)
+        return button, switch
+
+    def _toggle_autostart(self, _button: Gtk.Button | None = None) -> None:
+        self._buddy._autostart_enabled = not getattr(
+            self._buddy, "_autostart_enabled", False
+        )
+        if hasattr(self._buddy, "_config") and hasattr(
+            self._buddy._config, "save_autostart"
+        ):
+            self._buddy._config.save_autostart(self._buddy._autostart_enabled)
+        if getattr(self._buddy, "_autostart_switch", None) is not None:
+            self._buddy._autostart_switch.set_active(self._buddy._autostart_enabled)
+        self._buddy._logger.info(
+            "Autostart %s",
+            "enabled" if self._buddy._autostart_enabled else "disabled",
         )
 
     def _apply_dark_theme(self, enabled: bool) -> None:

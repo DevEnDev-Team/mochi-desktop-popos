@@ -140,6 +140,11 @@ class Buddy(Gtk.DrawingArea):
             if hasattr(self._config, "load_dark_theme")
             else False
         )
+        self._autostart_enabled = (
+            self._config.load_autostart()
+            if hasattr(self._config, "load_autostart")
+            else False
+        )
         self._sound = sound
         self._on_click = on_click
         self._preview_mode = preview_mode
@@ -349,6 +354,12 @@ class Buddy(Gtk.DrawingArea):
     def _make_dark_theme_row(self, *args, **kwargs):
         return _menu_ui_for(self)._make_dark_theme_row(*args, **kwargs)
 
+    def _toggle_autostart(self, *args, **kwargs):
+        return _menu_ui_for(self)._toggle_autostart(*args, **kwargs)
+
+    def _make_autostart_row(self, *args, **kwargs):
+        return _menu_ui_for(self)._make_autostart_row(*args, **kwargs)
+
     def _rebuild_context_menu(self, *args, **kwargs):
         return _menu_ui_for(self)._rebuild_context_menu(*args, **kwargs)
 
@@ -544,6 +555,9 @@ class Buddy(Gtk.DrawingArea):
             return
         if not self._drag_started:
             self._drag_started = True
+            dismiss = getattr(self, "_dismiss_presence_bubble", None)
+            if callable(dismiss):
+                dismiss(user_initiated=False)
             self._cancel_walk()
             self._click_reactions.clear()
             if not self._begin_pickup():
@@ -623,6 +637,9 @@ class Buddy(Gtk.DrawingArea):
         device = event.get_device() if event is not None else None
         if isinstance(surface, Gdk.Toplevel) and device is not None:
             self._drag_started = True
+            dismiss = getattr(self, "_dismiss_presence_bubble", None)
+            if callable(dismiss):
+                dismiss(user_initiated=False)
             self._cancel_walk()
             self._click_reactions.clear()
             if not self._begin_pickup():
@@ -677,8 +694,9 @@ class Buddy(Gtk.DrawingArea):
         if self.state.current is MochiState.SLEEPING:
             self._wake_up()
             return
-        if self.state.current is MochiState.WALKING:
-            self._cancel_walk()
+        if self.state.current in (MochiState.WALKING, MochiState.IDLE_EMOTE):
+            if self.state.current is MochiState.WALKING:
+                self._cancel_walk()
             self._transition_to(MochiState.IDLE)
         if not self._click_reactions.request(self.state.current):
             if self.state.current in (MochiState.BOUNCING, MochiState.SQUISHING):
@@ -905,6 +923,9 @@ class Buddy(Gtk.DrawingArea):
 
     def _begin_pickup(self) -> bool:
         self._cancel_active_emote()
+        dismiss = getattr(self, "_dismiss_presence_bubble", None)
+        if callable(dismiss):
+            dismiss(user_initiated=False)
         self._drag_neutral_since = None
         if not self._transition_to(MochiState.PICKUP):
             return False
@@ -1053,8 +1074,8 @@ class Buddy(Gtk.DrawingArea):
         self._logger.debug("Animation: %s -> blink", previous)
         self.queue_draw()
 
-    def _play_autonomous_catalogue_emote(self, name: str) -> bool:
-        """Play one unlocked catalogue emote as a finite idle reaction."""
+    def _play_autonomous_catalogue_emote(self, name: str, *, looping: bool = False) -> bool:
+        """Play one unlocked catalogue emote as a finite or looping idle reaction."""
 
         animation = ANIMATIONS.get(name)
         if animation is None:
@@ -1063,17 +1084,19 @@ class Buddy(Gtk.DrawingArea):
         if not self._transition_to(MochiState.IDLE_EMOTE):
             return False
 
-        # Some animations (notably Dance) are looping in their contextual use.
-        # Autonomous catalogue appearances must always finish and yield back to
-        # idle, so normalize only this playback instance rather than changing
-        # the authored animation globally.
-        autonomous = replace(animation, looping=False, next_state="idle")
+        if looping:
+            autonomous = replace(animation, looping=True, next_state=None)
+            pending = None
+        else:
+            autonomous = replace(animation, looping=False, next_state="idle")
+            pending = "idle"
+
         previous = self._current_animation
         self._current_animation = name
         self._active_animation = autonomous
-        self._pending_animation = "idle"
+        self._pending_animation = pending
         self.player.play(autonomous)
-        self._logger.debug("Animation: %s -> %s (catalogue idle)", previous, name)
+        self._logger.debug("Animation: %s -> %s (catalogue emote, looping=%s)", previous, name, looping)
         self.queue_draw()
         return True
 

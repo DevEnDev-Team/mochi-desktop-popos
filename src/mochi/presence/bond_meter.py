@@ -20,6 +20,7 @@ from mochi.care import (
 )
 from mochi.bond_orbs import MAX_ACTIVE_ORBS, XpOrbField
 from mochi.emotes import (
+    EMOTE_ID_BY_ANIMATION,
     EmoteDefinition,
     newly_unlocked_emotes,
     unlocked_emote_animation_names,
@@ -344,6 +345,20 @@ class BondMeterMixin:
         )
         if not is_music:
             unlocked = tuple(e for e in unlocked if e != "dance")
+
+        config = getattr(self, "_config", None)
+        if config is not None and hasattr(config, "load_emote_assignments"):
+            assignments = config.load_emote_assignments()
+            if assignments:
+                filtered = []
+                for anim in unlocked:
+                    emote_id = EMOTE_ID_BY_ANIMATION.get(anim)
+                    if emote_id and emote_id in assignments:
+                        if not assignments[emote_id].get("random", True):
+                            continue
+                    filtered.append(anim)
+                unlocked = tuple(filtered)
+
         return unlocked
 
     def _test_bond_reset(self, _button=None) -> None:

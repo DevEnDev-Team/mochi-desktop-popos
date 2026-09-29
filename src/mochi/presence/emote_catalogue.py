@@ -13,6 +13,8 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
+from collections.abc import Callable
+
 from mochi.care import BondState, bond_xp_required
 from mochi.emotes import (
     EMOTE_CATALOGUE,
@@ -23,6 +25,8 @@ from mochi.emotes import (
 from mochi.emote_shortcut import EmoteCatalogueShortcutMonitor
 from mochi.i18n import tr
 from mochi.sprites import ANIMATIONS, SpriteAtlas
+
+from .program_focus import get_installed_applications
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,6 +197,22 @@ window.mochi-emote-catalogue.mochi-dark-theme progressbar.mochi-emote-progress p
     background-color: #79c98b;
     border: none;
 }
+popover.mochi-emote-config-popover {
+    padding: 8px;
+}
+.mochi-emote-config-title {
+    font-size: 15px;
+    font-weight: 700;
+}
+.mochi-emote-config-subtitle {
+    font-size: 11px;
+    opacity: 0.70;
+    margin-bottom: 4px;
+}
+window.mochi-emote-catalogue.mochi-dark-theme popover.mochi-emote-config-popover {
+    background-color: #24242c;
+    color: #f4f4f5;
+}
 """
 
 
@@ -250,6 +270,8 @@ class EmoteCatalogueCanvas(Gtk.DrawingArea):
         self._hover_preview_emote_id: str | None = None
         self._hover_preview_frame_index = 0
 
+        self._assignments: dict[str, dict[str, object]] = {}
+
         self.set_content_width(self.WIDTH)
         self.set_content_height(self.HEIGHT)
         self.set_halign(Gtk.Align.CENTER)
@@ -260,6 +282,27 @@ class EmoteCatalogueCanvas(Gtk.DrawingArea):
         motion.connect("motion", self._on_motion)
         motion.connect("leave", self._on_leave)
         self.add_controller(motion)
+
+    def set_assignments(self, assignments: dict[str, dict[str, object]]) -> None:
+        self._assignments = dict(assignments)
+        if getattr(self, "_state", None) is not None:
+            self._render_card_surfaces()
+        else:
+            self._card_surfaces = []
+            self.queue_draw()
+
+    def card_at_coords(self, x: float, y: float) -> tuple[EmoteDefinition, Gdk.Rectangle] | None:
+        index = self.card_index_at(x, y)
+        if index is None or index >= len(self._emotes):
+            return None
+        emote = self._emotes[index]
+        card_x, card_y = self._card_origin(index)
+        rect = Gdk.Rectangle()
+        rect.x = int(card_x)
+        rect.y = int(card_y)
+        rect.width = int(self.CARD_WIDTH)
+        rect.height = int(self.CARD_HEIGHT)
+        return emote, rect
 
     def set_dark_theme(self, enabled: bool) -> None:
         new_val = bool(enabled)
@@ -583,17 +626,67 @@ class EmoteCatalogueCanvas(Gtk.DrawingArea):
         locked_colour = (0.65, 0.65, 0.68) if self._dark_theme else (0.38, 0.38, 0.38)
         status_colour = rarity.colour if unlocked else locked_colour
         self._draw_text(context, status, 126, 62, 10, status_colour, bold=True)
-        detail_colour = (
-            (0.72, 0.72, 0.75, 1) if self._dark_theme else (0.40, 0.40, 0.40, 1)
-        )
-        self._draw_text(
-            context,
-            self._detail(emote, unlocked),
-            126,
-            88,
-            10,
-            detail_colour,
-        )
+        if unlocked:
+            assignment = self._assignments.get(
+                emote.id, {"random": True, "program": ""}
+            )
+            is_random = bool(assignment.get("random", True))
+            prog = str(assignment.get("program", "")).strip()
+
+            if prog and is_random:
+                badge_text = tr("catalogue.badge_both", program=prog)
+                badge_colour = (0.22, 0.68, 0.88)
+            elif prog:
+                badge_text = tr("catalogue.badge_focus", program=prog)
+                badge_colour = (0.28, 0.78, 0.48)
+            elif is_random:
+                badge_text = tr("catalogue.badge_random")
+                badge_colour = (0.84, 0.62, 0.22)
+            else:
+                badge_text = tr("catalogue.badge_disabled")
+                badge_colour = (0.55, 0.55, 0.58)
+
+            badge_bg_alpha = 0.16 if self._dark_theme else 0.10
+            context.set_source_rgba(
+                badge_colour[0], badge_colour[1], badge_colour[2], badge_bg_alpha
+            )
+            pill_w = min(220, max(85, len(badge_text) * 7 + 16))
+            self._rounded_rectangle(context, 126, 70, pill_w, 18, 5)
+            context.fill()
+            context.set_source_rgba(
+                badge_colour[0], badge_colour[1], badge_colour[2], 0.45
+            )
+            context.set_line_width(1)
+            self._rounded_rectangle(context, 126, 70, pill_w, 18, 5)
+            context.stroke()
+            self._draw_text(
+                context, badge_text, 134, 83, 9.0, badge_colour, bold=True
+            )
+
+            hint_colour = (
+                (0.60, 0.60, 0.65) if self._dark_theme else (0.45, 0.45, 0.48)
+            )
+            self._draw_text(
+                context,
+                f"⚙ {tr('catalogue.click_to_configure')}",
+                126,
+                101,
+                9.0,
+                hint_colour,
+            )
+        else:
+            detail_colour = (
+                (0.72, 0.72, 0.75, 1) if self._dark_theme else (0.40, 0.40, 0.40, 1)
+            )
+            self._draw_text(
+                context,
+                self._detail(emote, unlocked),
+                126,
+                88,
+                10,
+                detail_colour,
+            )
+
 
         badge_width = 92
         badge_x = self.CARD_WIDTH - badge_width - 14
@@ -801,7 +894,10 @@ class EmoteCatalogueCanvas(Gtk.DrawingArea):
             len(self._card_surfaces) != len(self._emotes)
             or len(self._preview_surfaces) != len(self._emotes)
         ):
-            return
+            if getattr(self, "_state", None) is not None:
+                self._render_card_surfaces()
+            else:
+                return
 
         for index, (emote, surface, preview_surface) in enumerate(
             zip(
@@ -855,12 +951,22 @@ class EmoteCatalogueWindow:
         atlas: SpriteAtlas,
         logger: logging.Logger | None = None,
         dark_theme: bool = False,
+        config: object | None = None,
+        on_play_emote: Callable[[str], bool] | None = None,
+        on_assignment_changed: Callable[[], None] | None = None,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._state: BondState | None = None
         self._unlock_all = False
         self._current_page = 0
         self._dark_theme = bool(dark_theme) or bool(getattr(owner, "_dark_theme", False))
+        self._config = config
+        self._on_play_emote = on_play_emote
+        self._on_assignment_changed = on_assignment_changed
+        self._assignments: dict[str, dict[str, object]] = {}
+        self._config_popover: Gtk.Popover | None = None
+        if self._config is not None and hasattr(self._config, "load_emote_assignments"):
+            self._assignments = self._config.load_emote_assignments()
 
         application = owner.get_application()
         if application is not None:
@@ -943,6 +1049,10 @@ class EmoteCatalogueWindow:
             emotes=self._page_emotes(),
             dark_theme=self._dark_theme,
         )
+        self._canvas.set_assignments(self._assignments)
+        canvas_click = Gtk.GestureClick.new()
+        canvas_click.connect("released", self._on_canvas_released)
+        self._canvas.add_controller(canvas_click)
         self._canvas.set_margin_top(18)
         root.append(self._canvas)
 
@@ -975,7 +1085,7 @@ class EmoteCatalogueWindow:
         self._update_page_controls()
         self.window.connect("notify::visible", self._on_visibility_changed)
 
-        footer = Gtk.Label(label="Ctrl + Alt + E · ←/→ pages · Esc to close")
+        footer = Gtk.Label(label=tr("catalogue.footer"))
         footer.set_xalign(1)
         footer.set_margin_top(10)
         footer.add_css_class("mochi-emote-footer")
@@ -992,6 +1102,194 @@ class EmoteCatalogueWindow:
             self.window.remove_css_class("mochi-dark-theme")
         if hasattr(self, "_canvas") and hasattr(self._canvas, "set_dark_theme"):
             self._canvas.set_dark_theme(enabled)
+
+    def set_assignments(self, assignments: dict[str, dict[str, object]]) -> None:
+        self._assignments = dict(assignments)
+        if hasattr(self, "_canvas"):
+            self._canvas.set_assignments(self._assignments)
+
+    def _ensure_config_popover(self) -> Gtk.Popover:
+        if self._config_popover is None:
+            popover = Gtk.Popover()
+            popover.set_parent(self._canvas)
+            popover.set_has_arrow(True)
+            popover.set_autohide(True)
+            popover.add_css_class("mochi-emote-config-popover")
+            self._config_popover = popover
+        return self._config_popover
+
+    def _on_canvas_released(
+        self,
+        _gesture: Gtk.GestureClick,
+        _n_press: int,
+        x: float,
+        y: float,
+    ) -> None:
+        result = self._canvas.card_at_coords(x, y)
+        if result is None:
+            return
+        emote, rect = result
+        self._on_card_clicked(emote, rect)
+
+    def _on_card_clicked(self, emote: EmoteDefinition, rect: Gdk.Rectangle) -> None:
+        if emote.is_unlocked(self._state, unlock_all=self._unlock_all):
+            self._show_emote_config_popover(emote, rect)
+        else:
+            popover = self._ensure_config_popover()
+            popover.set_pointing_to(rect)
+            locked_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            locked_box.set_margin_top(8)
+            locked_box.set_margin_bottom(8)
+            locked_box.set_margin_start(10)
+            locked_box.set_margin_end(10)
+            locked_label = Gtk.Label(
+                label=tr("catalogue.locked_hint", level=emote.required_bond_level)
+            )
+            locked_label.set_wrap(True)
+            locked_box.append(locked_label)
+            popover.set_child(locked_box)
+            popover.popup()
+
+    def _show_emote_config_popover(
+        self, emote: EmoteDefinition, rect: Gdk.Rectangle
+    ) -> None:
+        popover = self._ensure_config_popover()
+        popover.set_pointing_to(rect)
+        popover.set_child(self._build_config_widget(emote, popover))
+        popover.popup()
+
+    def _build_config_widget(
+        self, emote: EmoteDefinition, popover: Gtk.Popover
+    ) -> Gtk.Widget:
+        assignment = self._assignments.get(emote.id, {"random": True, "program": ""})
+        current_random = bool(assignment.get("random", True))
+        current_program = str(assignment.get("program", "")).strip()
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.set_margin_top(8)
+        box.set_margin_bottom(8)
+        box.set_margin_start(10)
+        box.set_margin_end(10)
+        box.set_size_request(280, -1)
+
+        # Header
+        header_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        title_label = Gtk.Label(
+            label=tr("catalogue.config_title", name=emote.label)
+        )
+        title_label.set_xalign(0)
+        title_label.add_css_class("mochi-emote-config-title")
+        header_box.append(title_label)
+
+        sub_label = Gtk.Label(label=tr("catalogue.config_subtitle"))
+        sub_label.set_xalign(0)
+        sub_label.add_css_class("mochi-emote-config-subtitle")
+        header_box.append(sub_label)
+        box.append(header_box)
+
+        # Random check
+        random_check = Gtk.CheckButton.new_with_label(
+            tr("catalogue.mode_random")
+        )
+        random_check.set_active(current_random)
+        random_check.set_tooltip_text(tr("catalogue.mode_random_desc"))
+        box.append(random_check)
+
+        # Program focus check
+        program_check = Gtk.CheckButton.new_with_label(
+            tr("catalogue.mode_program")
+        )
+        program_check.set_active(bool(current_program))
+        program_check.set_tooltip_text(tr("catalogue.mode_program_desc"))
+        box.append(program_check)
+
+        # Target program box
+        prog_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        prog_box.set_margin_start(18)
+        prog_box.set_sensitive(bool(current_program))
+
+        prog_label = Gtk.Label(label=tr("catalogue.target_program"))
+        prog_label.set_xalign(0)
+        prog_box.append(prog_label)
+
+        # Installed apps dropdown
+        apps = get_installed_applications()
+        items = [(tr("catalogue.select_app"), "")] + apps
+        model = Gtk.StringList.new([item[0] for item in items])
+        drop_down = Gtk.DropDown.new(model, None)
+
+        initial_idx = 0
+        if current_program:
+            for idx, item in enumerate(items):
+                if item[1].lower() == current_program.lower():
+                    initial_idx = idx
+                    break
+        drop_down.set_selected(initial_idx)
+        prog_box.append(drop_down)
+
+        entry = Gtk.Entry()
+        entry.set_text(current_program)
+        entry.set_placeholder_text(tr("catalogue.custom_app_placeholder"))
+        prog_box.append(entry)
+        box.append(prog_box)
+
+        # Auto-save helper
+        def _save(*_args):
+            is_rand = random_check.get_active()
+            is_prog = program_check.get_active()
+            prog_val = entry.get_text().strip() if is_prog else ""
+            if self._config is not None and hasattr(self._config, "save_emote_assignment"):
+                self._config.save_emote_assignment(
+                    emote.id,
+                    random=is_rand,
+                    program=prog_val,
+                )
+            self._assignments[emote.id] = {
+                "random": is_rand,
+                "program": prog_val,
+            }
+            self._canvas.set_assignments(self._assignments)
+            if callable(self._on_assignment_changed):
+                self._on_assignment_changed()
+
+        def _on_program_toggled(button: Gtk.CheckButton):
+            active = button.get_active()
+            prog_box.set_sensitive(active)
+            if active and not entry.get_text().strip():
+                if len(items) > 1:
+                    drop_down.set_selected(1)
+                    entry.set_text(items[1][1])
+            _save()
+
+        def _on_dropdown_changed(dropdown: Gtk.DropDown, _pspec):
+            selected = dropdown.get_selected()
+            if 0 < selected < len(items):
+                entry.set_text(items[selected][1])
+                _save()
+
+        random_check.connect("toggled", lambda _b: _save())
+        program_check.connect("toggled", _on_program_toggled)
+        drop_down.connect("notify::selected", _on_dropdown_changed)
+        entry.connect("changed", lambda _e: _save())
+
+        # Buttons row
+        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        btn_box.set_margin_top(6)
+
+        test_btn = Gtk.Button(label=tr("catalogue.test_emote"))
+        test_btn.set_hexpand(True)
+        if self._on_play_emote is not None and emote.animation:
+            test_btn.connect("clicked", lambda _b: self._on_play_emote(emote.animation))
+        else:
+            test_btn.set_sensitive(False)
+        btn_box.append(test_btn)
+
+        close_btn = Gtk.Button(label=tr("menu.close"))
+        close_btn.connect("clicked", lambda _b: popover.popdown())
+        btn_box.append(close_btn)
+
+        box.append(btn_box)
+        return box
 
     @property
     def page_count(self) -> int:
@@ -1096,6 +1394,10 @@ class EmoteCatalogueWindow:
                 )
             )
 
+        if self._config is not None and hasattr(self._config, "load_emote_assignments"):
+            self._assignments = self._config.load_emote_assignments()
+            self._canvas.set_assignments(self._assignments)
+
         self._canvas.refresh(
             self._state,
             unlock_all=self._unlock_all,
@@ -1103,14 +1405,22 @@ class EmoteCatalogueWindow:
         return True
 
     def present(self) -> None:
+        if self._config is not None and hasattr(self._config, "load_emote_assignments"):
+            self._assignments = self._config.load_emote_assignments()
+            self._canvas.set_assignments(self._assignments)
         self.window.present()
         self._logger.debug("Emote catalogue opened")
 
     def hide(self) -> None:
+        if getattr(self, "_config_popover", None) is not None:
+            self._config_popover.popdown()
         self._canvas.reset_hover()
         self.window.hide()
 
     def destroy(self) -> None:
+        if getattr(self, "_config_popover", None) is not None:
+            self._config_popover.popdown()
+            self._config_popover = None
         self._canvas.reset_hover()
         self.window.destroy()
 
@@ -1161,9 +1471,19 @@ class EmoteCatalogueMixin:
                 owner=self._window,
                 atlas=self.atlas,
                 logger=self._logger,
+                config=getattr(self, "_config", None),
+                on_play_emote=getattr(self, "_play_autonomous_catalogue_emote", None),
+                on_assignment_changed=getattr(self, "_on_emote_assignment_changed", None),
             )
             self._emote_catalogue_window = window
         return window
+
+    def _on_emote_assignment_changed(self) -> None:
+        self._logger.debug("Emote assignment changed in catalogue")
+        current_ids = getattr(self, "_current_program_identifiers", None)
+        if current_ids and hasattr(self, "_on_program_focused"):
+            self._on_program_focused(current_ids)
+
 
     def _refresh_emote_catalogue(self, *, force: bool = False) -> None:
         window = self._emote_catalogue_window

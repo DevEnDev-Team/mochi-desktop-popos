@@ -193,6 +193,30 @@ class X11BuddyDragTests(unittest.TestCase):
             X11Buddy._sample_x11_drag(buddy, render=False)
         self.assertLess(motion.filtered_velocity_x, 0.0)
 
+    def test_drag_update_dismisses_open_speech_bubble_and_suppresses_wheee(self) -> None:
+        bubble = SimpleNamespace(visible=True, hide=Mock())
+        dismiss_mock = Mock()
+        buddy = SimpleNamespace(
+            _drag_started=False,
+            _presence_bubble=bubble,
+            _dismiss_presence_bubble=dismiss_mock,
+            _maybe_show_drag_speech=Mock(),
+            _move_with_x11_pointer=Mock(),
+        )
+
+        def fake_super_drag(gesture, x, y):
+            buddy._drag_started = True
+            buddy._dismiss_presence_bubble(user_initiated=False)
+            bubble.visible = False
+
+        with patch("mochi.x11_buddy.super") as mock_super:
+            mock_super.return_value._on_drag_update = fake_super_drag
+            X11Buddy._on_drag_update(buddy, Mock(), 10.0, 10.0)
+
+        dismiss_mock.assert_called_once_with(user_initiated=False)
+        buddy._maybe_show_drag_speech.assert_not_called()
+        buddy._move_with_x11_pointer.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -388,6 +388,38 @@ def move_window(window: Gtk.Window, x: int, y: int) -> bool:
         x11.XCloseDisplay(display)
 
 
+def move_resize_window(
+    window: Gtk.Window, x: int, y: int, width: int, height: int
+) -> bool:
+    surface = window.get_surface()
+    if GdkX11 is None or not isinstance(surface, GdkX11.X11Surface):
+        return False
+    x11, display = _open_x11()
+    if display is None:
+        return False
+    try:
+        x11.XMoveResizeWindow.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_ulong,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_uint,
+            ctypes.c_uint,
+        ]
+        x11.XMoveResizeWindow(
+            display,
+            surface.get_xid(),
+            int(x),
+            int(y),
+            max(1, int(width)),
+            max(1, int(height)),
+        )
+        x11.XFlush(display)
+        return True
+    finally:
+        x11.XCloseDisplay(display)
+
+
 def raise_window(window: Gtk.Window) -> bool:
     surface = window.get_surface()
     if GdkX11 is None or not isinstance(surface, GdkX11.X11Surface):
